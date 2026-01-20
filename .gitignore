@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.swp
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# AI/Agent files
+.gemini/
+.agent/

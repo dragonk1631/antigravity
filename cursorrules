@@ -1,0 +1,26 @@
+# General Rules
+1.  **Language:** Always respond in **Korean (한국어)**.
+2.  **Comments:** All code comments must be written in Korean.
+3.  **Artifacts:** When creating plans, task lists, or documentation, use Korean.
+
+# Project Rules for NEXUS ONE Game Project
+
+## 1. Tech Stack & Style
+- **Engine:** Phaser 3 (Javascript) - *중규모 웹게임의 표준입니다. Matter.js를 포함하며 씬 관리가 강력합니다.*
+- **Language:** Modern Javascript (ES6+ Modules)
+- **Comments:** 모든 함수와 주요 로직에는 **한글 주석**을 반드시 작성할 것 (JSDoc 형식).
+
+## 2. Architecture (Strict Modularization)
+- **Single Responsibility:** 하나의 파일은 하나의 클래스/기능만 담당한다.
+- **Folder Structure:**
+  - `/src/scenes`: MainMenu, GameScene, GameOver 등 씬(Scene) 파일
+  - `/src/objects`: Player, Enemy, Item 등 게임 오브젝트 클래스
+  - `/src/managers`: GameManager(점수/상태), SoundManager 등 관리자
+  - `/assets`: 이미지, 사운드 리소스
+
+## 3. State Management
+- 전역 변수(Global Variable) 사용 금지.
+- `GameManager` 싱글톤(Singleton) 클래스를 통해 점수, 레벨, 소지금을 중앙 관리한다.
+
+## 4. Documentation
+- 코드를 수정할 때는 왜 그렇게 수정했는지 이유를 주석으로 남길 것. (전자책 작성용)
