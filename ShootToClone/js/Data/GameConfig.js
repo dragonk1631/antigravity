@@ -17,18 +17,18 @@ export const GameConfig = {
     UNIT_FIRE_RATE: 0.5,    // 유닛 발사 간격 (플레이어보다 느리게)
 
     // 적군
-    ENEMY_SPAWN_RATE: 0.5,  // 프레임당 생성 확률
-    ENEMY_SPEED: 7,         // 적군 이동 속도
+    ENEMY_SPAWN_RATE: 0.7,  // 프레임당 생성 확률
+    ENEMY_SPEED: 8,         // 적군 이동 속도
     ENEMY_HP: 1,
 
     // 보스 & 미니보스
-    MINI_BOSS_HP: 50,
-    MINI_BOSS_SPEED: 5,
+    MINI_BOSS_HP: 30,
+    MINI_BOSS_SPEED: 4,
     MINI_BOSS_ATTACK_INTERVAL: 1.0,
     MINI_BOSS_ATTACK_DAMAGE: 2,
 
-    BOSS_HP: 200,
-    BOSS_SPEED: 4,
+    BOSS_HP: 100,
+    BOSS_SPEED: 3,
     BOSS_INTERVAL: 30,
     BOSS_ATTACK_INTERVAL: 2.0,
     BOSS_ATTACK_DAMAGE: 10,
@@ -44,5 +44,5 @@ export const GameConfig = {
     // SideTouch 설정
     WALL_X_POS: 7.2,
     ITEM_FEVER_DURATION: 5.0,
-    ITEM_SPAWN_INTERVAL: 100,
+    ITEM_SPAWN_INTERVAL: 5.0,
 };

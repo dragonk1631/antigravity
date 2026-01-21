@@ -24,9 +24,8 @@
 body {
     margin: 0;
     padding: 0;
-    background: linear-gradient(300deg, #f8bbd0, #fce4ec, #e1bee7, #ce93d8);
-    background-size: 240% 240%;
-    animation: gradientBG 20s ease infinite;
+    background: url('../assets/images/bg.png') no-repeat center center fixed;
+    background-size: cover;
     font-family: 'Fredoka', sans-serif;
     color: var(--text-color);
     display: flex;
@@ -43,47 +42,61 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(10px);
+    background: url('../assets/images/title.png') no-repeat center center;
+    background-size: cover;
     z-index: 200;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-end;
+    /* Align buttons to bottom */
+    padding-bottom: 50px;
+    /* Space for buttons */
+}
+
+/* Hide original title text since it's in the image */
+#difficulty-overlay h1 {
+    display: none;
 }
 
 .difficulty-box {
-    background: white;
-    padding: 40px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px 40px;
     border-radius: 30px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     text-align: center;
-    max-width: 600px;
+    max-width: 800px;
+    border: 3px solid white;
+    margin-bottom: 5vh;
+    /* Adjustable position */
 }
 
 .difficulty-buttons {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 15px;
-    margin-top: 30px;
+    margin-top: 10px;
 }
 
 .diff-btn {
     width: 60px;
     height: 60px;
-    border-radius: 15px;
-    border: none;
-    background: #f0f0f0;
+    border-radius: 18px;
+    border: 3px solid white;
+    background: linear-gradient(135deg, #ff80ab, #ff4081);
     font-size: 1.5rem;
-    font-weight: bold;
-    color: #888;
+    font-weight: 800;
+    color: white;
     cursor: pointer;
-    transition: all 0.2s;
+    box-shadow: 0 5px 15px rgba(255, 64, 129, 0.4);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
 }
 
 .diff-btn:hover {
-    background: var(--accent-color);
-    color: white;
-    transform: scale(1.1);
+    transform: scale(1.15) translateY(-5px);
+    background: linear-gradient(135deg, #ff4081, #f50057);
+    box-shadow: 0 10px 20px rgba(255, 64, 129, 0.6);
 }
 
 /* GAME LAYOUT */

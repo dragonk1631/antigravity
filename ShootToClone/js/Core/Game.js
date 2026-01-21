@@ -11,15 +11,37 @@ import { Unit } from '../Objects/Unit.js';
 import { GameConfig } from '../Data/GameConfig.js';
 import { SoundManager } from '../Utils/SoundManager.js';
 
+import { AssetManager } from '../Utils/AssetManager.js';
+
 export class Game {
     constructor(container) {
         this.container = container;
         this.scene = new THREE.Scene();
         this.world = new CANNON.World();
         this.soundManager = new SoundManager();
+        this.assetManager = new AssetManager(); // Asset Manager Instance
 
-        this.init();
-        this.animate();
+        // Load Assets first, then Init
+        this.loadGameAssets().then(() => {
+            console.log("Assets loaded successfully");
+            this.init();
+            this.animate();
+        }).catch(err => {
+            console.error("Failed to load assets:", err);
+            // Fallback: Init anyway (Player needs to handle missing assets)
+            this.init();
+            this.animate();
+        });
+    }
+
+    async loadGameAssets() {
+        const assets = [
+            { key: 'player', url: './assets/models/RobotExpressive.glb' }
+            // Soldier.glb removed - using lightweight procedural geometry for enemies
+        ];
+
+        // Show loading text?
+        await this.assetManager.loadAssets(assets);
     }
 
     init() {
@@ -28,36 +50,50 @@ export class Game {
         this.camera.position.set(0, 25, 35); // 플레이어가 화면 하단에 보이도록
         this.camera.lookAt(0, 0, 0);
 
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
         this.container.appendChild(this.renderer.domElement);
 
         // --- POST PROCESSING (BLOOM) ---
+        // Disable Bloom for Clean Arcade Look
         const renderScene = new RenderPass(this.scene, this.camera);
 
-        // Resolution, Strength, Radius, Threshold
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.3;   // 더 높은 임계값 (밝은 것만 발광)
-        bloomPass.strength = 0.8;    // 강도 대폭 감소 (2.0 → 0.8)
-        bloomPass.radius = 0.3;
+        // Bloom creates muddy visuals in daylight. Removed for now.
+        // const bloomPass = new UnrealBloomPass(...)
 
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(renderScene);
-        this.composer.addPass(bloomPass);
+        // this.composer.addPass(bloomPass);
 
-        // 배경색 (더 밝게 - 가시성 향상)
-        this.scene.background = new THREE.Color(0x1a1a2e); // 이전: 0x0a0a15
-        // Fog 제거 - 적이 잘 안 보이는 문제 해결
+        // 배경색 (Bright Pastel Sky)
+        this.scene.background = new THREE.Color(0xb3e5fc); // Lighter, more pastel blue
+        this.scene.fog = new THREE.Fog(0xb3e5fc, 20, 100); // Match sky color
 
-        // 2. 조명
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2); // 밝기 증가
+        // 2. 조명 (Bright Day Setup)
+        // Ambient Light (Overall Brightness)
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.8);
         this.scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(10, 20, 10);
+        // Directional Light (Sun - Sharp Shadows)
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(30, 50, 20);
         dirLight.castShadow = true;
+
+        // Shadow Properties
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 150;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50;
+        dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.bias = -0.0001;
+
         this.scene.add(dirLight);
+        this.dirLight = dirLight;
 
         // 3. 물리 엔진 설정
         this.world.gravity.set(0, -9.82, 0);
@@ -199,6 +235,13 @@ export class Game {
 
         // 2. 플레이어 업데이트 및 사격
         const shootRequest = this.player.update(dt, this.enemies);
+
+        // Lighting Follows Player
+        if (this.dirLight) {
+            this.dirLight.position.z = this.player.position.z + 20;
+            this.dirLight.target.position.z = this.player.position.z;
+            this.dirLight.target.updateMatrixWorld();
+        }
         if (shootRequest) {
             // 플레이어 발사 (리더는 무조건 발사)
             this.spawnBullet(shootRequest, 'PLAYER');
@@ -561,25 +604,22 @@ export class Game {
 
         // 중간보스 (3초마다 랜덤)
         this.miniBossTimer = (this.miniBossTimer || 0) + dt;
-        if (this.miniBossTimer >= 3 && Math.random() < 0.3) {
+        if (this.miniBossTimer >= 3 && Math.random() < 0.15) { // 0.3 -> 0.15 (절반)
             this.spawnMiniBoss();
             this.miniBossTimer = 0;
         }
 
-        // 일반 적 생성 (매우 촘촘하게) - 화면 위쪽 보이지 않는 곳에서 생성
-        if (Math.random() < GameConfig.ENEMY_SPAWN_RATE) {
-            const spawnZ = this.player.position.z - 60; // 화면 바깥
+        // 일반 적 생성 - 최대 개수 제한으로 성능 보장
+        const MAX_ENEMIES = 150; // 성능을 위한 최대 적 수
+        if (this.enemies.length < MAX_ENEMIES && Math.random() < GameConfig.ENEMY_SPAWN_RATE) {
+            const spawnZ = this.player.position.z - 60;
             const enemy = new Enemy(this.scene, spawnZ, 'NORMAL');
 
-            // 레벨에 따른 HP 적용 (일반 적은 배수, 보스는 +10씩)
+            // 레벨에 따른 HP 적용
             const multiplier = this.hpMultiplier || 1;
-            const levelBonus = (this.gameLevel || 1) - 1;
             enemy.hp *= multiplier;
             enemy.maxHp *= multiplier;
 
-            const safeX = (Math.random() * 10) - 5;
-            enemy.mesh.position.x = safeX;
-            enemy.position.x = safeX;
             this.enemies.push(enemy);
         }
 

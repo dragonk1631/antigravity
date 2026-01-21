@@ -201,11 +201,14 @@ class TetrisInstance {
         this.garbageQueue = 0;
         this.dropCounter = 0;
         this.dropInterval = 1000;
+        this.softDropping = false; // Soft drop state
         this.particles = [];
 
         this.fillBag();
-        this.nextPieces.push(this.getPieceFromBag());
-        this.nextPieces.push(this.getPieceFromBag());
+        // tetr.io shows 5-6 next pieces
+        for (let i = 0; i < 5; i++) {
+            this.nextPieces.push(this.getPieceFromBag());
+        }
         this.spawnPiece();
     }
 
@@ -221,7 +224,7 @@ class TetrisInstance {
     getPieceFromBag() {
         if (this.pieceBag.length === 0) this.fillBag();
         const type = this.pieceBag.pop();
-        return { type: type, shape: PIECES[type], x: 0, y: 0 };
+        return { type: type, shape: PIECES[type], x: 0, y: 0, rotation: 0 };
     }
 
     spawnPiece() {
@@ -265,21 +268,71 @@ class TetrisInstance {
         return matrix.map((row, i) => row.map((val, j) => matrix[N - 1 - j][i]));
     }
 
-    actionRotate() {
-        const rotated = this.rotateMatrix(this.currentPiece.shape);
-        const originalShape = this.currentPiece.shape;
-        this.currentPiece.shape = rotated;
-        let offset = 1;
-        while (this.collide(this.grid, this.currentPiece)) {
-            this.currentPiece.x += offset;
-            offset = -(offset + (offset > 0 ? 1 : -1));
-            if (offset > this.currentPiece.shape[0].length) {
-                this.currentPiece.shape = originalShape;
-                this.currentPiece.x = this.currentPiece.x;
-                return false;
-            }
+    // SRS Wall Kick Data (tetr.io standard)
+    getSRSKickTable(pieceType, rotation, direction) {
+        // I-piece has special wall kicks
+        if (pieceType === 1) {
+            const iKicks = {
+                '0>>1': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+                '1>>0': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+                '1>>2': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+                '2>>1': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+                '2>>3': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+                '3>>2': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+                '3>>0': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+                '0>>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]]
+            };
+            const key = `${rotation}>>${(rotation + direction + 4) % 4}`;
+            return iKicks[key] || [[0, 0]];
+        } else {
+            // JLSTZ pieces
+            const normalKicks = {
+                '0>>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+                '1>>0': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+                '1>>2': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+                '2>>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+                '2>>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+                '3>>2': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+                '3>>0': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+                '0>>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]]
+            };
+            const key = `${rotation}>>${(rotation + direction + 4) % 4}`;
+            return normalKicks[key] || [[0, 0]];
         }
-        return true;
+    }
+
+    actionRotate(direction = 1) {
+        if (!this.currentPiece) return false;
+
+        const piece = this.currentPiece;
+        const rotated = this.rotateMatrix(piece.shape);
+        const originalShape = piece.shape;
+        const originalRotation = piece.rotation || 0;
+        const newRotation = (originalRotation + direction + 4) % 4;
+
+        // Try wall kicks using SRS
+        const kicks = this.getSRSKickTable(piece.type, originalRotation, direction);
+
+        piece.shape = rotated;
+        piece.rotation = newRotation;
+
+        for (let kick of kicks) {
+            piece.x += kick[0];
+            piece.y -= kick[1]; // Y is inverted
+
+            if (!this.collide(this.grid, piece)) {
+                return true; // Success!
+            }
+
+            // Undo kick attempt
+            piece.x -= kick[0];
+            piece.y += kick[1];
+        }
+
+        // All kicks failed, restore original
+        piece.shape = originalShape;
+        piece.rotation = originalRotation;
+        return false;
     }
 
     actionMove(dir) {
@@ -315,7 +368,7 @@ class TetrisInstance {
             this.spawnPiece();
         } else {
             const temp = this.currentPiece.type;
-            this.currentPiece = { type: this.holdPiece, shape: PIECES[this.holdPiece], x: 0, y: 0 };
+            this.currentPiece = { type: this.holdPiece, shape: PIECES[this.holdPiece], x: 0, y: 0, rotation: 0 };
             this.holdPiece = temp;
             this.currentPiece.x = Math.floor(COLS / 2) - Math.floor(this.currentPiece.shape[0].length / 2);
             this.currentPiece.y = 0;
@@ -392,7 +445,11 @@ class TetrisInstance {
     update(dt) {
         if (this.gameOver) return;
         this.dropCounter += dt;
-        if (this.dropCounter > this.dropInterval) {
+
+        // tetr.io: Soft drop is 20x faster
+        const effectiveInterval = this.softDropping ? this.dropInterval / 20 : this.dropInterval;
+
+        if (this.dropCounter > effectiveInterval) {
             this.actionDrop();
         }
         for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -490,20 +547,25 @@ class TetrisInstance {
             }
         }
 
-        // Draw Next (Centered)
+        // Draw Next (Centered) - Show first 5 pieces
         if (this.nextCtx) {
-            this.nextCtx.clearRect(0, 0, boxSize, 180);
-            this.nextPieces.forEach((piece, i) => {
+            const nextHeight = 300;
+            this.nextCtx.clearRect(0, 0, boxSize, nextHeight);
+
+            // Show first 5 pieces (tetr.io style)
+            const piecesToShow = Math.min(5, this.nextPieces.length);
+            for (let i = 0; i < piecesToShow; i++) {
+                const piece = this.nextPieces[i];
                 const shape = piece.shape;
                 const w = shape[0].length * BLOCK_SIZE * scale;
                 const h = shape.length * BLOCK_SIZE * scale;
                 const offX = (boxSize - w) / 2;
-                const offY = 10 + i * 60; // Spacing
+                const offY = 5 + i * 55; // Tighter spacing for 5 pieces
 
                 shape.forEach((r, y) => r.forEach((v, x) => {
                     if (v !== 0) this.drawUIBlock(this.nextCtx, offX + x * BLOCK_SIZE * scale, offY + y * BLOCK_SIZE * scale, v, scale);
                 }));
-            });
+            }
         }
     }
 }
@@ -800,22 +862,121 @@ class GameController {
     }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    window.onkeydown = (e) => {
-        if (window.gameController && window.gameController.isActive) {
-            const p = window.gameController.player;
-            const a = window.gameController.audio;
-            if (!p) return;
-            switch (e.code) {
-                case 'ArrowLeft': p.actionMove(-1) && a.playMove(); break;
-                case 'ArrowRight': p.actionMove(1) && a.playMove(); break;
-                case 'ArrowUp': p.actionRotate() && a.playRotate(); break;
-                case 'ArrowDown': p.actionDrop(); break;
-                case 'Space': p.actionHardDrop() && a.playDrop(); break;
-                case 'KeyC':
-                case 'ShiftLeft': p.actionHold() && a.playHold(); break;
+// ⚡ DAS/ARR Input Handler (tetr.io style)
+class InputHandler {
+    constructor(player, audio) {
+        this.player = player;
+        this.audio = audio;
+
+        // DAS/ARR settings (in ms) - Comfortable for general players
+        this.DAS = 133; // Delayed Auto Shift (standard)
+        this.ARR = 33;  // Auto Repeat Rate (smooth but controllable)
+
+        this.keys = {};
+        this.dasTimers = {};
+        this.arrTimers = {};
+
+        this.setupListeners();
+    }
+
+    setupListeners() {
+        window.addEventListener('keydown', (e) => {
+            if (!window.gameController || !window.gameController.isActive) return;
+
+            const key = e.code;
+            if (this.keys[key]) return; // Already pressed
+
+            this.keys[key] = true;
+            this.handleKeyPress(key, true);
+
+            // Start DAS timer for movement keys
+            if (key === 'ArrowLeft' || key === 'ArrowRight') {
+                this.dasTimers[key] = setTimeout(() => {
+                    this.startARR(key);
+                }, this.DAS);
             }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.code;
+            this.keys[key] = false;
+
+            // Clear timers
+            if (this.dasTimers[key]) {
+                clearTimeout(this.dasTimers[key]);
+                delete this.dasTimers[key];
+            }
+            if (this.arrTimers[key]) {
+                clearInterval(this.arrTimers[key]);
+                delete this.arrTimers[key];
+            }
+
+            // Stop soft drop
+            if (key === 'ArrowDown') {
+                this.player.softDropping = false;
+            }
+        });
+    }
+
+    startARR(key) {
+        // Repeat at ARR interval
+        this.arrTimers[key] = setInterval(() => {
+            if (!this.keys[key]) {
+                clearInterval(this.arrTimers[key]);
+                return;
+            }
+            this.handleKeyPress(key, false);
+        }, this.ARR);
+    }
+
+    handleKeyPress(key, isInitial) {
+        const p = this.player;
+        const a = this.audio;
+
+        switch (key) {
+            case 'ArrowLeft':
+                if (p.actionMove(-1) && isInitial) a.playMove();
+                break;
+            case 'ArrowRight':
+                if (p.actionMove(1) && isInitial) a.playMove();
+                break;
+            case 'ArrowUp':
+            case 'KeyX':
+                if (isInitial && p.actionRotate()) a.playRotate();
+                break;
+            case 'KeyZ':
+            case 'ControlLeft':
+                if (isInitial && p.actionRotate(-1)) a.playRotate(); // Counter-clockwise
+                break;
+            case 'ArrowDown':
+                p.softDropping = true; // Enable soft drop
+                break;
+            case 'Space':
+                if (isInitial && p.actionHardDrop()) a.playDrop();
+                break;
+            case 'KeyC':
+            case 'ShiftLeft':
+                if (isInitial && p.actionHold()) a.playHold();
+                break;
         }
-    };
-    try { window.gameController = new GameController(); } catch (e) { }
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        window.gameController = new GameController();
+
+        // Initialize input handler when game starts
+        const originalStartLevel = window.gameController.startLevel.bind(window.gameController);
+        window.gameController.startLevel = function (level) {
+            originalStartLevel(level);
+            if (!window.inputHandler) {
+                window.inputHandler = new InputHandler(this.player, this.audio);
+            } else {
+                window.inputHandler.player = this.player;
+            }
+        };
+    } catch (e) {
+        console.error(e);
+    }
 });

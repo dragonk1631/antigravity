@@ -27,6 +27,7 @@ export class Item {
         this.mesh.position.copy(this.position);
         this.mesh.position.y = 1;
         this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
         this.scene.add(this.mesh);
 
         // HP 표시

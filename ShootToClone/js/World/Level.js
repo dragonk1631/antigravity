@@ -17,24 +17,56 @@ export class Level {
     }
 
     init() {
-        // 1. Infinite Neon Grid
-        // GridHelper(size, divisions, colorCenter, colorGrid)
-        const gridSize = 2000;
-        const divisions = 200;
-        this.grid = new THREE.GridHelper(gridSize, divisions, 0x00ffff, 0x220044);
-        this.grid.position.y = -2; // 플레이어(y=1) 아래
+        // 1. Water Ocean (Far below)
+        import('../Utils/Water.js').then(({ Water }) => {
+            this.water = new Water(500, 500);
+            this.water.position.y = -10; // Below bridge
+            this.water.position.z = -50;
+            this.scene.add(this.water);
+        });
 
-        // 이동 효과를 위해 Z축으로 움직임
-        this.scene.add(this.grid);
-
-        // 2. Fog for depth
-        // Game.js에서 이미 설정했지만 여기서도 확인
+        // 2. Bridge (Road) construction
+        this.createBridge();
 
         // 3. 패널 텍스처 미리 생성
         this.panelTexture = TextureHelper.createPlusOneTexture();
-
-        // 4. 패널 미리 생성
         this.createPanelBelt();
+    }
+
+    createBridge() {
+        // Main Road
+        const roadWidth = 20; // Enough for player movement (-8 to 8)
+        const roadLength = 200; // Long strip
+
+        const roadGeo = new THREE.BoxGeometry(roadWidth, 1, roadLength);
+        const roadMat = new THREE.MeshStandardMaterial({
+            color: 0x3a3a3a, // Dark Asphalt Gray
+            roughness: 0.9,
+            metalness: 0.05
+        });
+
+        this.road = new THREE.Mesh(roadGeo, roadMat);
+        this.road.position.set(0, -0.5, -40); // Feet at 0, so road top at 0 (y=-0.5, height=1)
+        this.road.receiveShadow = true;
+        this.scene.add(this.road);
+
+        // Railings
+        const railGeo = new THREE.BoxGeometry(0.5, 2, roadLength);
+        const railMat = new THREE.MeshStandardMaterial({ color: 0xffb3d9 }); // Pastel Pink
+
+        const leftRail = new THREE.Mesh(railGeo, railMat);
+        leftRail.position.set(-(roadWidth / 2 + 0.25), 0.5, -40);
+        leftRail.castShadow = true;
+        leftRail.receiveShadow = true;
+        this.scene.add(leftRail);
+        this.leftRail = leftRail;
+
+        const rightRail = new THREE.Mesh(railGeo, railMat);
+        rightRail.position.set((roadWidth / 2 + 0.25), 0.5, -40);
+        rightRail.castShadow = true;
+        rightRail.receiveShadow = true;
+        this.scene.add(rightRail);
+        this.rightRail = rightRail;
     }
 
     createPanelBelt() {
@@ -56,9 +88,20 @@ export class Level {
         // 10칸(grid spacing)만큼 움직이면 다시 원위치하는 착시 사용 (이 게임은 플레이어가 가만히 있고 세상이 움직이는게 아니라, 플레이어가 앞으로 감)
         // 하지만 여기선 플레이어 Z에 맞춰 그리드를 계속 앞으로 이동시킴
 
-        const sectorSize = 100; // Grid segment size
-        if (this.grid) {
-            this.grid.position.z = Math.floor(playerZ / sectorSize) * sectorSize;
+        // Water Animation
+        // Water Animation
+        if (this.water) {
+            this.water.update(1 / 60);
+            this.water.position.z = playerZ - 50;
+        }
+
+        // Bridge Infinite Scroll
+        // Move bridge so it's always under player. 
+        // In a real runner, we spawn chunks. Here simple hack: stick to player Z
+        if (this.road) {
+            this.road.position.z = playerZ - 20; // Slightly ahead/behind
+            this.leftRail.position.z = playerZ - 20;
+            this.rightRail.position.z = playerZ - 20;
         }
 
         // 패널 스크롤 (아래로 이동) - 원본 로직 유지
@@ -96,11 +139,13 @@ export class Level {
     }
 
     manageItems(playerZ) {
-        if (playerZ < this.nextItemZ + 50) {
+        // Item spawns ahead of player at regular intervals
+        if (playerZ < this.nextItemZ) {
             this.spawnItem(this.nextItemZ);
-            this.nextItemZ -= GameConfig.ITEM_SPAWN_INTERVAL;
+            this.nextItemZ -= GameConfig.ITEM_SPAWN_INTERVAL; // Move spawn point further back
         }
 
+        // Remove items that are behind player
         for (let i = this.items.length - 1; i >= 0; i--) {
             if (this.items[i].position.z > playerZ + 20) {
                 this.items[i].kill();

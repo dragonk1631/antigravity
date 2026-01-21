@@ -17,43 +17,110 @@ export class Player {
     }
 
     init() {
-        // 플레이어 메쉬 (Fighter Jet Style)
+        // 🎨 Cute Hero Character (Player - looks different from enemies!)
         this.mesh = new THREE.Group();
+        this.createCuteHero();
 
-        // 1. Main Body (Fuselage)
-        const bodyGeo = new THREE.ConeGeometry(0.5, 2, 8);
-        bodyGeo.rotateX(Math.PI / 2); // Point forward
+        this.mesh.position.y = 0;
+        this.scene.add(this.mesh);
+    }
+
+    createCuteHero() {
+        const baseSize = 1.0; // Player size
+
+        // 1. BODY - Blue hero color to distinguish from enemies
+        const bodyGeo = new THREE.SphereGeometry(baseSize, 12, 10);
+        bodyGeo.scale(1, 0.8, 1); // Slightly squished
+
         const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0x00ff00,      // 밝은 녹색 (패널과 구별)
-            roughness: 0.4,
-            metalness: 0.8,
-            emissive: 0x00ff00,   // 녹색 발광
-            emissiveIntensity: 0.3  // 발광 강도 감소
+            color: 0x4da6ff, // Bright blue
+            roughness: 0.6,
+            metalness: 0.1,
+            emissive: 0x4da6ff,
+            emissiveIntensity: 0.2
         });
+
         const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = baseSize * 0.4;
         this.mesh.add(body);
 
-        // 2. Wings (Swept Back)
-        const wingGeo = new THREE.BoxGeometry(3, 0.1, 1.5);
-        const wingMat = new THREE.MeshStandardMaterial({
-            color: 0x00aa00,      // 진한 녹샄
-            roughness: 0.4,
-            metalness: 0.8
+        // 2. CUTE EARS (like a cat/rabbit!)
+        const earGeo = new THREE.ConeGeometry(baseSize * 0.15, baseSize * 0.5, 6);
+        const earMat = new THREE.MeshStandardMaterial({ color: 0x6db3ff, roughness: 0.5 });
+
+        const leftEar = new THREE.Mesh(earGeo, earMat);
+        leftEar.position.set(-baseSize * 0.35, baseSize * 1.1, 0);
+        leftEar.rotation.z = 0.2;
+        this.mesh.add(leftEar);
+
+        const rightEar = new THREE.Mesh(earGeo, earMat);
+        rightEar.position.set(baseSize * 0.35, baseSize * 1.1, 0);
+        rightEar.rotation.z = -0.2;
+        this.mesh.add(rightEar);
+
+        // 3. BIG FRIENDLY EYES
+        const eyeSize = baseSize * 0.18;
+        const eyeOffset = baseSize * 0.28;
+
+        // Eye whites
+        const eyeWhiteGeo = new THREE.SphereGeometry(eyeSize, 8, 8);
+        const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+        const leftEye = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+        leftEye.position.set(-eyeOffset, baseSize * 0.7, baseSize * 0.6);
+        this.mesh.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+        rightEye.position.set(eyeOffset, baseSize * 0.7, baseSize * 0.6);
+        this.mesh.add(rightEye);
+
+        // Pupils
+        const pupilGeo = new THREE.SphereGeometry(eyeSize * 0.5, 6, 6);
+        const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+
+        const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
+        leftPupil.position.set(-eyeOffset, baseSize * 0.7, baseSize * 0.8);
+        this.mesh.add(leftPupil);
+
+        const rightPupil = new THREE.Mesh(pupilGeo, pupilMat);
+        rightPupil.position.set(eyeOffset, baseSize * 0.7, baseSize * 0.8);
+        this.mesh.add(rightPupil);
+
+        // Eye highlights
+        const shineGeo = new THREE.SphereGeometry(eyeSize * 0.25, 4, 4);
+        const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        const leftShine = new THREE.Mesh(shineGeo, shineMat);
+        leftShine.position.set(-eyeOffset + eyeSize * 0.12, baseSize * 0.8, baseSize * 0.85);
+        this.mesh.add(leftShine);
+
+        const rightShine = new THREE.Mesh(shineGeo, shineMat);
+        rightShine.position.set(eyeOffset + eyeSize * 0.12, baseSize * 0.8, baseSize * 0.85);
+        this.mesh.add(rightShine);
+
+        // 4. CUTE NOSE
+        const noseGeo = new THREE.SphereGeometry(baseSize * 0.08, 6, 6);
+        const noseMat = new THREE.MeshStandardMaterial({ color: 0xff6b9d });
+        const nose = new THREE.Mesh(noseGeo, noseMat);
+        nose.position.set(0, baseSize * 0.55, baseSize * 0.9);
+        this.mesh.add(nose);
+
+        // 5. SMILE (simple arc using torus)
+        const smileGeo = new THREE.TorusGeometry(baseSize * 0.25, baseSize * 0.03, 6, 12, Math.PI);
+        const smileMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const smile = new THREE.Mesh(smileGeo, smileMat);
+        smile.position.set(0, baseSize * 0.4, baseSize * 0.85);
+        smile.rotation.z = Math.PI;
+        smile.rotation.x = -0.3;
+        this.mesh.add(smile);
+
+        // Enable Shadows
+        this.mesh.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
         });
-        const wings = new THREE.Mesh(wingGeo, wingMat);
-        wings.position.z = 0.5;
-        this.mesh.add(wings);
-
-        // 3. Engine Glow (Rear)
-        const engineGeo = new THREE.CylinderGeometry(0.3, 0.1, 0.5, 8);
-        engineGeo.rotateX(Math.PI / 2);
-        const engineMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // 녹색 엔진 불꽃
-        const engine = new THREE.Mesh(engineGeo, engineMat);
-        engine.position.z = 1.2;
-        this.mesh.add(engine);
-
-        this.mesh.position.y = 1.0;
-        this.scene.add(this.mesh);
     }
 
     setupInput() {
@@ -95,6 +162,11 @@ export class Player {
 
         // 메쉬 업데이트
         this.mesh.position.copy(this.position);
+
+        // Animation: Tail Wag
+        if (this.tail) {
+            this.tail.rotation.z = Math.sin(Date.now() * 0.01) * 0.2;
+        }
 
         // 3. 자동 조준 및 사격
         return this.handleShooting(dt, enemies);
