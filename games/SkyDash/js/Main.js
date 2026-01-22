@@ -16,10 +16,14 @@ class Main {
         this.lobby = new Lobby(this);
         this.settingsScreen = new Settings(this);
         this.game = null;
+        this.sound = new SoundManager();
 
         this.currentState = 'LOBBY';
 
         this.lastTime = 0;
+
+        // Music state
+        this.musicStarted = false;
 
         window.addEventListener('resize', () => this.resize());
         this.resize();
@@ -60,6 +64,16 @@ class Main {
         // Canvas click for menus AND game over buttons
         ['mousedown', 'touchstart'].forEach(evt => {
             this.canvas.addEventListener(evt, (e) => {
+                // Start lobby music on first interaction
+                if (!this.musicStarted) {
+                    this.sound.init();
+                    this.sound.resume();
+                    if (this.currentState === 'LOBBY') {
+                        this.sound.startBGM('lobby');
+                    }
+                    this.musicStarted = true;
+                }
+
                 e.preventDefault();
                 const rect = this.canvas.getBoundingClientRect();
                 let clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -95,8 +109,17 @@ class Main {
     }
 
     startGame(mode) {
-        this.game = new Game(this, mode);
+        this.game = new Game(this, mode, this.sound);
         this.currentState = 'GAME';
+
+        // Switch to game music
+        this.sound.stopBGM();
+        this.sound.startBGM('game');
+
+        // Switch to game music
+        this.sound.stopBGM();
+        this.sound.startBGM('game');
+
         document.getElementById('controls').style.display = 'flex';
         document.getElementById('score').style.display = 'block';
     }
@@ -108,9 +131,13 @@ class Main {
         }
 
         this.currentState = 'LOBBY';
-        if (this.game) {
-            this.game.sound.stopBGM();
+
+        // Switch to lobby music
+        this.sound.stopBGM();
+        if (this.musicStarted) {
+            this.sound.startBGM('lobby');
         }
+
         document.getElementById('controls').style.display = 'none';
         document.getElementById('score').style.display = 'none';
     }

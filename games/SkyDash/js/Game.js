@@ -176,339 +176,13 @@ class ProceduralBackground {
     }
 }
 
-// Sound Manager using Web Audio API
-// Sound Manager using Web Audio API
-// Sound Manager using Web Audio API
-class SoundManager {
-    constructor() {
-        this.ctx = null;
-        this.isPlaying = false;
-        this.tempo = 140;
-        this.timerID = null;
-        this.lookahead = 25.0; // ms
-        this.scheduleAheadTime = 0.1; // sec
-
-        // Music Data
-        this.sequencer = {
-            melody: [],
-            chords: [],
-            bass: []
-        };
-
-        // Scheduler State
-        this.noteIndexMelody = 0;
-        this.noteIndexBass = 0;
-        this.noteIndexChord = 0;
-        this.timeMelody = 0;
-        this.timeBass = 0;
-        this.timeChord = 0;
-    }
-
-    init() {
-        if (this.ctx) return;
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        this.composeMusic();
-    }
-
-    resume() {
-        if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
-    }
-
-    // --- Instruments ---
-
-    playMelodyNote(note, time, duration) {
-        if (!note) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.frequency.value = note;
-        osc.type = 'square'; // Chiptuneish lead
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        // ADSR Envelope
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.1, time + 0.02); // Attack
-        gain.gain.exponentialRampToValueAtTime(0.08, time + 0.05); // Decay
-        gain.gain.setValueAtTime(0.08, time + duration - 0.02); // Sustain
-        gain.gain.linearRampToValueAtTime(0, time + duration); // Release
-
-        // Vibrato
-        const vib = this.ctx.createOscillator();
-        const vibGain = this.ctx.createGain();
-        vib.frequency.value = 5; // 5Hz vibrato
-        vibGain.gain.value = 3; // depth
-        vib.connect(vibGain);
-        vibGain.connect(osc.frequency);
-        vib.start(time);
-        vib.stop(time + duration);
-
-        osc.start(time);
-        osc.stop(time + duration);
-    }
-
-    playChordNote(note, time, duration) {
-        if (!note) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.frequency.value = note;
-        osc.type = 'triangle'; // Softer backing
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.05, time + 0.1);
-        gain.gain.setValueAtTime(0.05, time + duration - 0.1);
-        gain.gain.linearRampToValueAtTime(0, time + duration);
-
-        osc.start(time);
-        osc.stop(time + duration);
-    }
-
-    playBassNote(note, time, duration) {
-        if (!note) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.frequency.value = note;
-        osc.type = 'sawtooth'; // Punchy bass
-
-        // Lowpass filter for bass
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.value = 800;
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.15, time + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.1, time + 0.1);
-        gain.gain.setValueAtTime(0.1, time + duration - 0.05);
-        gain.gain.linearRampToValueAtTime(0, time + duration);
-
-        osc.start(time);
-        osc.stop(time + duration);
-    }
-
-    // --- Sequencer ---
-
-    composeMusic() {
-        const C4 = 261.63, D4 = 293.66, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00, B4 = 493.88;
-        const C5 = 523.25, D5 = 587.33, E5 = 659.25, F5 = 698.46, G5 = 783.99, A5 = 880.00, B5 = 987.77;
-        const C6 = 1046.50;
-        const C3 = 130.81, D3 = 146.83, E3 = 164.81, F3 = 174.61, G3 = 196.00, A3 = 220.00, B3 = 246.94;
-
-        // 16 Bar Melody Loop (Simple layout)
-        // Bars 1-4
-        this.sequencer.melody = [
-            // Bar 1
-            { Note: E5, Len: 1 }, { Note: D5, Len: 0.5 }, { Note: C5, Len: 0.5 }, { Note: D5, Len: 1 }, { Note: E5, Len: 1 },
-            // Bar 2
-            { Note: G5, Len: 2 }, { Note: E5, Len: 1 }, { Note: C5, Len: 1 },
-            // Bar 3
-            { Note: A5, Len: 1 }, { Note: G5, Len: 0.5 }, { Note: F5, Len: 0.5 }, { Note: G5, Len: 1 }, { Note: E5, Len: 1 },
-            // Bar 4
-            { Note: D5, Len: 3 }, { Note: null, Len: 1 }, // Rest
-
-            // Bar 5-8 (Variation)
-            { Note: E5, Len: 1 }, { Note: D5, Len: 0.5 }, { Note: C5, Len: 0.5 }, { Note: D5, Len: 1 }, { Note: E5, Len: 1 },
-            { Note: G5, Len: 1.5 }, { Note: A5, Len: 0.5 }, { Note: G5, Len: 2 },
-            { Note: F5, Len: 1 }, { Note: E5, Len: 1 }, { Note: D5, Len: 1 }, { Note: C5, Len: 1 },
-            { Note: C5, Len: 3 }, { Note: null, Len: 1 },
-
-            // Bar 9-12 (Higher energy)
-            { Note: G5, Len: 1 }, { Note: G5, Len: 1 }, { Note: A5, Len: 1 }, { Note: G5, Len: 1 },
-            { Note: C6, Len: 2 }, { Note: G5, Len: 2 },
-            { Note: F5, Len: 1 }, { Note: E5, Len: 1 }, { Note: F5, Len: 1 }, { Note: G5, Len: 1 },
-            { Note: E5, Len: 3 }, { Note: null, Len: 1 },
-
-            // Bar 13-16 (Resolution)
-            { Note: C5, Len: 1 }, { Note: E5, Len: 1 }, { Note: G5, Len: 1 }, { Note: C6, Len: 1 },
-            { Note: B5, Len: 1.5 }, { Note: A5, Len: 0.5 }, { Note: G5, Len: 2 },
-            { Note: A5, Len: 1 }, { Note: G5, Len: 1 }, { Note: F5, Len: 1 }, { Note: D5, Len: 1 },
-            { Note: C5, Len: 4 }
-        ];
-
-        // Simple Chord Progression: C - G - Am - F (Standard Pop)
-        // 4 beats per bar
-        const loops = 4; // Repeat progression 4 times for 16 bars total
-        for (let i = 0; i < loops; i++) {
-            // C Major
-            this.sequencer.chords.push({ notes: [C4, E4, G4], len: 4 });
-            this.sequencer.bass.push({ note: C3, len: 1 });
-            this.sequencer.bass.push({ note: C3, len: 1 });
-            this.sequencer.bass.push({ note: G3, len: 1 });
-            this.sequencer.bass.push({ note: C3, len: 1 });
-
-            // G Major
-            this.sequencer.chords.push({ notes: [G3, B3, D4], len: 4 });
-            this.sequencer.bass.push({ note: G3, len: 1 });
-            this.sequencer.bass.push({ note: G3, len: 1 });
-            this.sequencer.bass.push({ note: D3, len: 1 });
-            this.sequencer.bass.push({ note: G3, len: 1 });
-
-            // A Minor
-            this.sequencer.chords.push({ notes: [A3, C4, E4], len: 4 });
-            this.sequencer.bass.push({ note: A3, len: 1 });
-            this.sequencer.bass.push({ note: A3, len: 1 });
-            this.sequencer.bass.push({ note: E3, len: 1 });
-            this.sequencer.bass.push({ note: A3, len: 1 });
-
-            // F Major
-            this.sequencer.chords.push({ notes: [F3, A3, C4], len: 4 });
-            this.sequencer.bass.push({ note: F3, len: 1 });
-            this.sequencer.bass.push({ note: F3, len: 1 });
-            this.sequencer.bass.push({ note: C3, len: 1 });
-            this.sequencer.bass.push({ note: F3, len: 1 });
-        }
-    }
-
-    startBGM() {
-        // Initialize audio context if not already done
-        this.init();
-
-        if (!this.ctx || this.isPlaying) return;
-        this.isPlaying = true;
-
-        // Ensure context is running (user interaction requirement)
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
-
-        // Reset tracking variables
-        this.noteIndexMelody = 0;
-        this.noteIndexBass = 0;
-        this.noteIndexChord = 0;
-
-        const startTime = this.ctx.currentTime + 0.1;
-        this.timeMelody = startTime;
-        this.timeBass = startTime;
-        this.timeChord = startTime;
-
-        this.tick();
-    }
-
-    tick() {
-        if (!this.isPlaying) return;
-
-        const secondsPerBeat = 60.0 / this.tempo;
-
-        const schedule = (indexKey, timeKey, track, type) => {
-            // Schedule notes that need to play within the lookahead window
-            while (this[timeKey] < this.ctx.currentTime + this.scheduleAheadTime) {
-                if (track.length === 0) return;
-
-                const event = track[this[indexKey] % track.length];
-
-                let durationBeats = event.Len || event.len || 1;
-                let note = event.Note || event.note;
-                let notes = event.notes;
-
-                const durationSeconds = durationBeats * secondsPerBeat;
-
-                if (type === 'melody') {
-                    this.playMelodyNote(note, this[timeKey], durationSeconds * 0.9);
-                } else if (type === 'bass') {
-                    this.playBassNote(note, this[timeKey], durationSeconds * 0.9);
-                } else if (type === 'chord') {
-                    if (notes) {
-                        notes.forEach(n => this.playChordNote(n, this[timeKey], durationSeconds * 0.9));
-                    }
-                }
-
-                this[timeKey] += durationSeconds;
-                this[indexKey]++;
-            }
-        };
-
-        schedule('noteIndexMelody', 'timeMelody', this.sequencer.melody, 'melody');
-        schedule('noteIndexBass', 'timeBass', this.sequencer.bass, 'bass');
-        schedule('noteIndexChord', 'timeChord', this.sequencer.chords, 'chord');
-
-        if (this.isPlaying) {
-            this.timerID = setTimeout(() => this.tick(), this.lookahead);
-        }
-    }
-
-    stopBGM() {
-        this.isPlaying = false;
-        if (this.timerID) clearTimeout(this.timerID);
-    }
-
-    // SFX
-    playClimb() {
-        if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.frequency.setValueAtTime(440, t);
-        osc.frequency.exponentialRampToValueAtTime(880, t + 0.1);
-
-        gain.gain.setValueAtTime(0.2, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-
-        osc.type = 'square';
-        osc.start(t);
-        osc.stop(t + 0.1);
-    }
-
-    playFail() {
-        if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.frequency.setValueAtTime(150, t);
-        osc.frequency.linearRampToValueAtTime(40, t + 0.3);
-
-        gain.gain.setValueAtTime(0.3, t);
-        gain.gain.linearRampToValueAtTime(0, t + 0.3);
-
-        osc.type = 'sawtooth';
-        osc.start(t);
-        osc.stop(t + 0.3);
-    }
-
-    playClear() {
-        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-            const t = this.ctx.currentTime + i * 0.05;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-
-            osc.frequency.value = freq;
-            osc.type = 'triangle';
-
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.2, t + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
-
-            osc.start(t);
-            osc.stop(t + 1.5);
-        });
-    }
-}
-
 class Game {
-    constructor(main, mode = 'infinite') {
+    constructor(main, mode = 'infinite', sound = null) {
         this.main = main;
         this.mode = mode;
         this.goalStairs = mode === '100' ? 100 : Infinity;
 
-        this.sound = new SoundManager();
+        this.sound = sound || new SoundManager();
         this.particles = new ParticleSystem();
         this.background = new ProceduralBackground();
 
@@ -584,7 +258,7 @@ class Game {
         this.sound.resume();
 
         if (!this.sound.isPlaying && !this.isGameOver && !this.isFalling) {
-            this.sound.startBGM();
+            this.sound.startBGM('game');
         }
 
         // Block all input while falling
@@ -605,6 +279,9 @@ class Game {
             if (action === 'SELECT') { // Enter key
                 if (this.selectedButton === 0) {
                     this.reset();
+                    // Audio restart handled in reset or next input?
+                    // Better to start music here if instant restart
+                    this.sound.startBGM('game');
                 } else {
                     this.main.switchToLobby();
                 }
@@ -615,6 +292,7 @@ class Game {
             if (x !== undefined && y !== undefined) {
                 if (x > 110 && x < 340 && y > 650 && y < 720) {
                     this.reset();
+                    this.sound.startBGM('game');
                     return;
                 }
                 if (x > 380 && x < 610 && y > 650 && y < 720) {
@@ -703,6 +381,7 @@ class Game {
             if (this.fallY > 500) {
                 this.isGameOver = true;
                 this.isFalling = false;
+                this.sound.playGameOverJingle(); // Add Game Over Jingle
             }
             return;
         }
