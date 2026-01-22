@@ -177,15 +177,30 @@ class ProceduralBackground {
 }
 
 // Sound Manager using Web Audio API
+// Sound Manager using Web Audio API
 class SoundManager {
     constructor() {
         this.ctx = null;
         this.isPlaying = false;
+        this.tempo = 140;
+        this.nextNoteTime = 0;
+        this.timerID = null;
+        this.lookahead = 25.0; // ms
+        this.scheduleAheadTime = 0.1; // sec
+        this.currentNote = 0;
+
+        // Music Data
+        this.sequencer = {
+            melody: [],
+            chords: [],
+            bass: []
+        };
     }
 
     init() {
         if (this.ctx) return;
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.composeMusic();
     }
 
     resume() {
@@ -194,95 +209,350 @@ class SoundManager {
         }
     }
 
-    playClimb() {
-        if (!this.ctx) return;
+    // --- Instruments ---
+
+    playMelodyNote(note, time, duration) {
+        if (!note) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+
+        osc.frequency.value = note;
+        osc.type = 'square'; // Chiptuneish lead
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
-        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1);
+        // ADSR Envelope
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.1, time + 0.02); // Attack
+        gain.gain.exponentialRampToValueAtTime(0.08, time + 0.05); // Decay
+        gain.gain.setValueAtTime(0.08, time + duration - 0.02); // Sustain
+        gain.gain.linearRampToValueAtTime(0, time + duration); // Release
 
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        // Vibrato
+        const vib = this.ctx.createOscillator();
+        const vibGain = this.ctx.createGain();
+        vib.frequency.value = 5; // 5Hz vibrato
+        vibGain.gain.value = 3; // depth
+        vib.connect(vibGain);
+        vibGain.connect(osc.frequency);
+        vib.start(time);
+        vib.stop(time + duration);
 
-        osc.type = 'square';
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.15);
+        osc.start(time);
+        osc.stop(time + duration);
     }
 
-    playFail() {
-        if (!this.ctx) return;
+    playChordNote(note, time, duration) {
+        if (!note) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+
+        osc.frequency.value = note;
+        osc.type = 'triangle'; // Softer backing
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
-        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.05, time + 0.1);
+        gain.gain.setValueAtTime(0.05, time + duration - 0.1);
+        gain.gain.linearRampToValueAtTime(0, time + duration);
 
-        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-
-        osc.type = 'sawtooth';
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.4);
+        osc.start(time);
+        osc.stop(time + duration);
     }
 
-    playClear() {
-        if (!this.ctx) return;
-        const notes = [523, 659, 784, 1047];
-        notes.forEach((freq, i) => {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.frequency.value = freq;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.3, this.ctx.currentTime + i * 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.1 + 0.3);
-            osc.start(this.ctx.currentTime + i * 0.1);
-            osc.stop(this.ctx.currentTime + i * 0.1 + 0.3);
-        });
+    playBassNote(note, time, duration) {
+        if (!note) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.frequency.value = note;
+        osc.type = 'sawtooth'; // Punchy bass
+
+        // Lowpass filter for bass
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 800;
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.15, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.1, time + 0.1);
+        gain.gain.setValueAtTime(0.1, time + duration - 0.05);
+        gain.gain.linearRampToValueAtTime(0, time + duration);
+
+        osc.start(time);
+        osc.stop(time + duration);
     }
+
+    // --- Sequencer ---
+
+    composeMusic() {
+        const C4 = 261.63, D4 = 293.66, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00, B4 = 493.88;
+        const C5 = 523.25, D5 = 587.33, E5 = 659.25, F5 = 698.46, G5 = 783.99, A5 = 880.00, B5 = 987.77;
+        const C3 = 130.81, D3 = 146.83, E3 = 164.81, F3 = 174.61, G3 = 196.00, A3 = 220.00, B3 = 246.94;
+
+        // 16 Bar Melody Loop (Simple layout)
+        // Bars 1-4
+        this.sequencer.melody = [
+            // Bar 1
+            { Note: E5, Len: 1 }, { Note: D5, Len: 0.5 }, { Note: C5, Len: 0.5 }, { Note: D5, Len: 1 }, { Note: E5, Len: 1 },
+            // Bar 2
+            { Note: G5, Len: 2 }, { Note: E5, Len: 1 }, { Note: C5, Len: 1 },
+            // Bar 3
+            { Note: A5, Len: 1 }, { Note: G5, Len: 0.5 }, { Note: F5, Len: 0.5 }, { Note: G5, Len: 1 }, { Note: E5, Len: 1 },
+            // Bar 4
+            { Note: D5, Len: 3 }, { Note: null, Len: 1 }, // Rest
+
+            // Bar 5-8 (Variation)
+            { Note: E5, Len: 1 }, { Note: D5, Len: 0.5 }, { Note: C5, Len: 0.5 }, { Note: D5, Len: 1 }, { Note: E5, Len: 1 },
+            { Note: G5, Len: 1.5 }, { Note: A5, Len: 0.5 }, { Note: G5, Len: 2 },
+            { Note: F5, Len: 1 }, { Note: E5, Len: 1 }, { Note: D5, Len: 1 }, { Note: C5, Len: 1 },
+            { Note: C5, Len: 3 }, { Note: null, Len: 1 },
+
+            // Bar 9-12 (Higher energy)
+            { Note: G5, Len: 1 }, { Note: G5, Len: 1 }, { Note: A5, Len: 1 }, { Note: G5, Len: 1 },
+            { Note: C6, Len: 2 }, { Note: G5, Len: 2 },
+            { Note: F5, Len: 1 }, { Note: E5, Len: 1 }, { Note: F5, Len: 1 }, { Note: G5, Len: 1 },
+            { Note: E5, Len: 3 }, { Note: null, Len: 1 },
+
+            // Bar 13-16 (Resolution)
+            { Note: C5, Len: 1 }, { Note: E5, Len: 1 }, { Note: G5, Len: 1 }, { Note: C6, Len: 1 },
+            { Note: B5, Len: 1.5 }, { Note: A5, Len: 0.5 }, { Note: G5, Len: 2 },
+            { Note: A5, Len: 1 }, { Note: G5, Len: 1 }, { Note: F5, Len: 1 }, { Note: D5, Len: 1 },
+            { Note: C5, Len: 4 }
+        ];
+
+        // Simple Chord Progression: C - G - Am - F (Standard Pop)
+        // 4 beats per bar
+        const loops = 4; // Repeat progression 4 times for 16 bars total
+        for (let i = 0; i < loops; i++) {
+            // C Major
+            this.sequencer.chords.push({ notes: [C4, E4, G4], len: 4 });
+            this.sequencer.bass.push({ note: C3, len: 1 });
+            this.sequencer.bass.push({ note: C3, len: 1 });
+            this.sequencer.bass.push({ note: G3, len: 1 });
+            this.sequencer.bass.push({ note: C3, len: 1 });
+
+            // G Major
+            this.sequencer.chords.push({ notes: [G3, B3, D4], len: 4 });
+            this.sequencer.bass.push({ note: G3, len: 1 });
+            this.sequencer.bass.push({ note: G3, len: 1 });
+            this.sequencer.bass.push({ note: D3, len: 1 });
+            this.sequencer.bass.push({ note: G3, len: 1 });
+
+            // A Minor
+            this.sequencer.chords.push({ notes: [A3, C4, E4], len: 4 });
+            this.sequencer.bass.push({ note: A3, len: 1 });
+            this.sequencer.bass.push({ note: A3, len: 1 });
+            this.sequencer.bass.push({ note: E3, len: 1 });
+            this.sequencer.bass.push({ note: A3, len: 1 });
+
+            // F Major
+            this.sequencer.chords.push({ notes: [F3, A3, C4], len: 4 });
+            this.sequencer.bass.push({ note: F3, len: 1 });
+            this.sequencer.bass.push({ note: F3, len: 1 });
+            this.sequencer.bass.push({ note: C3, len: 1 });
+            this.sequencer.bass.push({ note: F3, len: 1 });
+        }
+    }
+
+    scheduler() {
+        // While there are notes that will need to play before the next interval, 
+        // schedule them and advance the pointer.
+        while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
+            this.scheduleNotes(this.currentNote, this.nextNoteTime);
+            this.nextNote();
+        }
+
+        if (this.isPlaying) {
+            this.timerID = setTimeout(() => this.scheduler(), this.lookahead);
+        }
+    }
+
+    nextNote() {
+        const secondsPerBeat = 60.0 / this.tempo;
+        // We advance by 0.5 beat increments (eighth notes) to allow finer granularity if needed,
+        // but our basic unit is quarter note = 1 beat. 
+        // For simplicity here, let's assume granularity is 0.5 beats (8th notes) for sync.
+        // Actually, let's stick to beat-based scheduling. 
+        // We will increment 'currentBeat' and checking arrays.
+
+        // Simplified: Fixed 16th note grid? No, array based is better for varying lengths.
+        // BUT, synchronizing 3 arrays is hard. 
+        // Let's use a Tick system. 1 Tick = 1 Beat.
+
+        this.nextNoteTime += 0.5 * secondsPerBeat; // Advance by 8th notes
+        this.currentNote++; // 8th note counter
+    }
+
+    scheduleNotes(beatNumber, time) {
+        // beatNumber is in 8th notes (0.5 beats)
+        const currentBeatEighths = beatNumber;
+
+        // This simple scheduler is tricky with variable length sequencer arrays.
+        // Re-implementing: Calculate absolute time for each track independently?
+        // Better: Pre-calculate all events in relative time?
+        // Let's stick to a simpler method: Loop Playback.
+    }
+
+    // --- Simpler Loop Method ---
+    // Since we want a robust loop without complex scheduling logic for this constraint:
 
     startBGM() {
         if (!this.ctx || this.isPlaying) return;
+        this.init();
         this.isPlaying = true;
 
-        const playNote = (freq, time, duration) => {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.frequency.value = freq;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(0.06, time + 0.02);
-            gain.gain.linearRampToValueAtTime(0, time + duration);
-            osc.start(time);
-            osc.stop(time + duration);
-        };
+        const secondsPerBeat = 60.0 / this.tempo;
+        let currentTime = this.ctx.currentTime + 0.1;
 
-        const notes = [262, 330, 392, 523, 392, 330];
-        const noteDuration = 0.2;
+        // Helper to schedule a whole track
+        const scheduleTrack = (track, type) => {
+            let trackTime = currentTime;
+            let totalDuration = 0;
 
-        const loopBGM = () => {
-            if (!this.isPlaying) return;
-            const now = this.ctx.currentTime;
-            notes.forEach((note, i) => {
-                playNote(note, now + i * noteDuration, noteDuration * 0.8);
+            track.forEach(event => {
+                const duration = event.Len * secondsPerBeat; // Len in beats
+                if (type === 'melody') this.playMelodyNote(event.Note, trackTime, duration);
+                if (type === 'bass') this.playBassNote(event.note, trackTime, duration);
+                if (type === 'chord') {
+                    event.notes.forEach(n => this.playChordNote(n, trackTime, duration));
+                }
+                trackTime += duration;
+                totalDuration += duration;
             });
-            setTimeout(loopBGM, notes.length * noteDuration * 1000);
+            return totalDuration;
         };
-        loopBGM();
+
+        // Schedule one loop of everything
+        const loopDuration = scheduleTrack(this.sequencer.melody, 'melody');
+        scheduleTrack(this.sequencer.bass, 'bass');
+        // Note: melody and bass arrays are designed to be same length in beats (16 bars * 4 = 64 beats)
+        // Chords might be coarser.
+
+        // Chord track needs manual sync if lengths differ in array count
+        // My chord array has 16 bars * 1 entry = 16 entries (each 4 beats) = 64 beats. Matches.
+        let chordTime = currentTime;
+        this.sequencer.chords.forEach(c => {
+            const dur = c.len * secondsPerBeat;
+            c.notes.forEach(n => this.playChordNote(n, chordTime, dur));
+            chordTime += dur;
+        });
+
+        // Loop Logic
+        // In a real game loop, we'd use the scheduler. For this simplified scope:
+        // Set timeout to call startBGM again? No, gaps.
+        // Use OnEnded? No.
+        // Let's use the standard "Lookahead" scheduler properly implemented now.
+
+        // Resetting for Scheduler approach
+        this.isPlaying = true;
+        this.noteIndexMelody = 0;
+        this.noteIndexBass = 0;
+        this.noteIndexChord = 0;
+        this.timeMelody = this.ctx.currentTime + 0.1;
+        this.timeBass = this.ctx.currentTime + 0.1;
+        this.timeChord = this.ctx.currentTime + 0.1;
+
+        this.tick();
+    }
+
+    tick() {
+        if (!this.isPlaying) return;
+
+        const schedule = (indexKey, timeKey, track, type) => {
+            // Schedule ahead
+            while (this[timeKey] < this.ctx.currentTime + this.scheduleAheadTime) {
+                const event = track[this[indexKey] % track.length]; // Loop array
+                const duration = (event.Len || event.len) * (60.0 / this.tempo);
+
+                if (type === 'melody') this.playMelodyNote(event.Note, this[timeKey], duration);
+                if (type === 'bass') this.playBassNote(event.note, this[timeKey], duration);
+                if (type === 'chord') event.notes.forEach(n => this.playChordNote(n, this[timeKey], duration));
+
+                this[timeKey] += duration;
+                this[indexKey]++;
+            }
+        };
+
+        schedule('noteIndexMelody', 'timeMelody', this.sequencer.melody, 'melody');
+        schedule('noteIndexBass', 'timeBass', this.sequencer.bass, 'bass');
+        schedule('noteIndexChord', 'timeChord', this.sequencer.chords, 'chord');
+
+        this.timerID = setTimeout(() => this.tick(), this.lookahead);
     }
 
     stopBGM() {
         this.isPlaying = false;
+        if (this.timerID) clearTimeout(this.timerID);
+        // Cancel scheduled notes? Hard with simplistic Web Audio.
+        // We just stop scheduling new ones.
+    }
+
+    // SFX (Keep existing logic but improved)
+    playClimb() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.1);
+
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+
+        osc.type = 'square';
+        osc.start(t);
+        osc.stop(t + 0.1);
+    }
+
+    playFail() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.frequency.setValueAtTime(150, t);
+        osc.frequency.linearRampToValueAtTime(40, t + 0.3);
+
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.linearRampToValueAtTime(0, t + 0.3);
+
+        osc.type = 'sawtooth';
+        osc.start(t);
+        osc.stop(t + 0.3);
+    }
+
+    playClear() {
+        // Nice chord
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const t = this.ctx.currentTime + i * 0.05;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.frequency.value = freq;
+            osc.type = 'triangle';
+
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.2, t + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
+
+            osc.start(t);
+            osc.stop(t + 1.5);
+        });
     }
 }
 
