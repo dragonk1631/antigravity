@@ -178,16 +178,15 @@ class ProceduralBackground {
 
 // Sound Manager using Web Audio API
 // Sound Manager using Web Audio API
+// Sound Manager using Web Audio API
 class SoundManager {
     constructor() {
         this.ctx = null;
         this.isPlaying = false;
         this.tempo = 140;
-        this.nextNoteTime = 0;
         this.timerID = null;
         this.lookahead = 25.0; // ms
         this.scheduleAheadTime = 0.1; // sec
-        this.currentNote = 0;
 
         // Music Data
         this.sequencer = {
@@ -195,6 +194,14 @@ class SoundManager {
             chords: [],
             bass: []
         };
+
+        // Scheduler State
+        this.noteIndexMelody = 0;
+        this.noteIndexBass = 0;
+        this.noteIndexChord = 0;
+        this.timeMelody = 0;
+        this.timeBass = 0;
+        this.timeChord = 0;
     }
 
     init() {
@@ -362,103 +369,25 @@ class SoundManager {
         }
     }
 
-    scheduler() {
-        // While there are notes that will need to play before the next interval, 
-        // schedule them and advance the pointer.
-        while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
-            this.scheduleNotes(this.currentNote, this.nextNoteTime);
-            this.nextNote();
-        }
-
-        if (this.isPlaying) {
-            this.timerID = setTimeout(() => this.scheduler(), this.lookahead);
-        }
-    }
-
-    nextNote() {
-        const secondsPerBeat = 60.0 / this.tempo;
-        // We advance by 0.5 beat increments (eighth notes) to allow finer granularity if needed,
-        // but our basic unit is quarter note = 1 beat. 
-        // For simplicity here, let's assume granularity is 0.5 beats (8th notes) for sync.
-        // Actually, let's stick to beat-based scheduling. 
-        // We will increment 'currentBeat' and checking arrays.
-
-        // Simplified: Fixed 16th note grid? No, array based is better for varying lengths.
-        // BUT, synchronizing 3 arrays is hard. 
-        // Let's use a Tick system. 1 Tick = 1 Beat.
-
-        this.nextNoteTime += 0.5 * secondsPerBeat; // Advance by 8th notes
-        this.currentNote++; // 8th note counter
-    }
-
-    scheduleNotes(beatNumber, time) {
-        // beatNumber is in 8th notes (0.5 beats)
-        const currentBeatEighths = beatNumber;
-
-        // This simple scheduler is tricky with variable length sequencer arrays.
-        // Re-implementing: Calculate absolute time for each track independently?
-        // Better: Pre-calculate all events in relative time?
-        // Let's stick to a simpler method: Loop Playback.
-    }
-
-    // --- Simpler Loop Method ---
-    // Since we want a robust loop without complex scheduling logic for this constraint:
-
     startBGM() {
         if (!this.ctx || this.isPlaying) return;
         this.init();
         this.isPlaying = true;
 
-        const secondsPerBeat = 60.0 / this.tempo;
-        let currentTime = this.ctx.currentTime + 0.1;
+        // Ensure context is running (user interaction requirement)
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
 
-        // Helper to schedule a whole track
-        const scheduleTrack = (track, type) => {
-            let trackTime = currentTime;
-            let totalDuration = 0;
-
-            track.forEach(event => {
-                const duration = event.Len * secondsPerBeat; // Len in beats
-                if (type === 'melody') this.playMelodyNote(event.Note, trackTime, duration);
-                if (type === 'bass') this.playBassNote(event.note, trackTime, duration);
-                if (type === 'chord') {
-                    event.notes.forEach(n => this.playChordNote(n, trackTime, duration));
-                }
-                trackTime += duration;
-                totalDuration += duration;
-            });
-            return totalDuration;
-        };
-
-        // Schedule one loop of everything
-        const loopDuration = scheduleTrack(this.sequencer.melody, 'melody');
-        scheduleTrack(this.sequencer.bass, 'bass');
-        // Note: melody and bass arrays are designed to be same length in beats (16 bars * 4 = 64 beats)
-        // Chords might be coarser.
-
-        // Chord track needs manual sync if lengths differ in array count
-        // My chord array has 16 bars * 1 entry = 16 entries (each 4 beats) = 64 beats. Matches.
-        let chordTime = currentTime;
-        this.sequencer.chords.forEach(c => {
-            const dur = c.len * secondsPerBeat;
-            c.notes.forEach(n => this.playChordNote(n, chordTime, dur));
-            chordTime += dur;
-        });
-
-        // Loop Logic
-        // In a real game loop, we'd use the scheduler. For this simplified scope:
-        // Set timeout to call startBGM again? No, gaps.
-        // Use OnEnded? No.
-        // Let's use the standard "Lookahead" scheduler properly implemented now.
-
-        // Resetting for Scheduler approach
-        this.isPlaying = true;
+        // Reset tracking variables
         this.noteIndexMelody = 0;
         this.noteIndexBass = 0;
         this.noteIndexChord = 0;
-        this.timeMelody = this.ctx.currentTime + 0.1;
-        this.timeBass = this.ctx.currentTime + 0.1;
-        this.timeChord = this.ctx.currentTime + 0.1;
+
+        const startTime = this.ctx.currentTime + 0.1;
+        this.timeMelody = startTime;
+        this.timeBass = startTime;
+        this.timeChord = startTime;
 
         this.tick();
     }
@@ -466,17 +395,32 @@ class SoundManager {
     tick() {
         if (!this.isPlaying) return;
 
+        const secondsPerBeat = 60.0 / this.tempo;
+
         const schedule = (indexKey, timeKey, track, type) => {
-            // Schedule ahead
+            // Schedule notes that need to play within the lookahead window
             while (this[timeKey] < this.ctx.currentTime + this.scheduleAheadTime) {
-                const event = track[this[indexKey] % track.length]; // Loop array
-                const duration = (event.Len || event.len) * (60.0 / this.tempo);
+                if (track.length === 0) return;
 
-                if (type === 'melody') this.playMelodyNote(event.Note, this[timeKey], duration);
-                if (type === 'bass') this.playBassNote(event.note, this[timeKey], duration);
-                if (type === 'chord') event.notes.forEach(n => this.playChordNote(n, this[timeKey], duration));
+                const event = track[this[indexKey] % track.length];
 
-                this[timeKey] += duration;
+                let durationBeats = event.Len || event.len || 1;
+                let note = event.Note || event.note;
+                let notes = event.notes;
+
+                const durationSeconds = durationBeats * secondsPerBeat;
+
+                if (type === 'melody') {
+                    this.playMelodyNote(note, this[timeKey], durationSeconds * 0.9);
+                } else if (type === 'bass') {
+                    this.playBassNote(note, this[timeKey], durationSeconds * 0.9);
+                } else if (type === 'chord') {
+                    if (notes) {
+                        notes.forEach(n => this.playChordNote(n, this[timeKey], durationSeconds * 0.9));
+                    }
+                }
+
+                this[timeKey] += durationSeconds;
                 this[indexKey]++;
             }
         };
@@ -485,17 +429,17 @@ class SoundManager {
         schedule('noteIndexBass', 'timeBass', this.sequencer.bass, 'bass');
         schedule('noteIndexChord', 'timeChord', this.sequencer.chords, 'chord');
 
-        this.timerID = setTimeout(() => this.tick(), this.lookahead);
+        if (this.isPlaying) {
+            this.timerID = setTimeout(() => this.tick(), this.lookahead);
+        }
     }
 
     stopBGM() {
         this.isPlaying = false;
         if (this.timerID) clearTimeout(this.timerID);
-        // Cancel scheduled notes? Hard with simplistic Web Audio.
-        // We just stop scheduling new ones.
     }
 
-    // SFX (Keep existing logic but improved)
+    // SFX
     playClimb() {
         if (!this.ctx) return;
         const t = this.ctx.currentTime;
@@ -535,7 +479,6 @@ class SoundManager {
     }
 
     playClear() {
-        // Nice chord
         [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
             const t = this.ctx.currentTime + i * 0.05;
             const osc = this.ctx.createOscillator();
