@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SkyDash</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-layer">
+            <div id="score" style="display: none;">0</div>
+            <div id="controls" style="display: none;">
+                <button id="btn-left" class="game-btn"></button>
+                <button id="btn-right" class="game-btn"></button>
+            </div>
+        </div>
+    </div>
+    <script src="js/shaders.js"></script>
+    <script src="js/Renderer.js"></script>
+    <script src="js/Lobby.js"></script>
+    <script src="js/Settings.js"></script>
+    <script src="js/Game.js"></script>
+    <script src="js/Main.js"></script>
+</body>
+
+</html>

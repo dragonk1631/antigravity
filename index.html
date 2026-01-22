@@ -28,12 +28,14 @@
 
         header {
             text-align: center;
-            padding: 60px 20px;
+            padding: 30px 20px;
+            /* Reduced padding */
             background: radial-gradient(circle at center, #2a2a35 0%, var(--bg-color) 70%);
         }
 
         h1 {
-            font-size: 3rem;
+            font-size: 2.2rem;
+            /* Reduced font size */
             margin: 0;
             background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
             -webkit-background-clip: text;
@@ -42,23 +44,28 @@
 
         p.subtitle {
             color: var(--text-sub);
-            font-size: 1.2rem;
-            margin-top: 10px;
+            font-size: 1rem;
+            /* Reduced font size */
+            margin-top: 5px;
         }
 
         main {
             flex: 1;
-            max-width: 1200px;
+            max-width: 1400px;
+            /* Increased max-width */
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 20px;
+            /* Reduced padding */
             width: 100%;
             box-sizing: border-box;
         }
 
         .game-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            /* Reduced min width */
+            gap: 20px;
+            /* Reduced gap */
         }
 
         .game-card {
@@ -80,43 +87,53 @@
         }
 
         .card-image {
-            height: 180px;
+            height: 140px;
+            /* Reduced height */
             background-color: #2a2a35;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 3rem;
+            font-size: 2.5rem;
+            /* Reduced icon size */
         }
 
         .card-content {
-            padding: 20px;
+            padding: 15px;
+            /* Reduced padding */
             flex: 1;
             display: flex;
             flex-direction: column;
         }
 
         .game-title {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
+            /* Reduced font size */
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: var(--accent);
         }
 
         .game-desc {
             color: var(--text-sub);
-            font-size: 0.95rem;
-            line-height: 1.5;
-            margin-bottom: 20px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 15px;
             flex: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         .play-btn {
             background-color: var(--accent);
             color: white;
-            padding: 10px 20px;
+            padding: 8px 16px;
+            /* Reduced padding */
             border-radius: 6px;
             text-align: center;
             font-weight: bold;
+            font-size: 0.9rem;
             transition: background-color 0.2s;
         }
 
@@ -126,9 +143,10 @@
 
         footer {
             text-align: center;
-            padding: 40px;
+            padding: 20px;
+            /* Reduced padding */
             color: var(--text-sub);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             border-top: 1px solid #333;
         }
 
@@ -148,6 +166,10 @@
         .match3-bg {
             background: linear-gradient(45deg, #FF9A9E, #FECFEF);
         }
+
+        .skydash-bg {
+            background: linear-gradient(45deg, #87CEEB, #4169E1);
+        }
     </style>
 </head>
 
@@ -161,7 +183,7 @@
     <main>
         <div class="game-grid">
             <!-- Tetris Link -->
-            <a href="./Tetris/" class="game-card">
+            <a href="./games/Tetris/" class="game-card">
                 <div class="card-image tetris-bg">🧩</div>
                 <div class="card-content">
                     <div class="game-title">Evolving Tetris</div>
@@ -173,7 +195,7 @@
             </a>
 
             <!-- ShootToClone Link -->
-            <a href="./ShootToClone/" class="game-card">
+            <a href="./games/ShootToClone/" class="game-card">
                 <div class="card-image shoot-bg">✈️</div>
                 <div class="card-content">
                     <div class="game-title">Shoot To Clone</div>
@@ -185,7 +207,7 @@
             </a>
 
             <!-- LastWar Link -->
-            <a href="./LastWar/" class="game-card">
+            <a href="./games/LastWar/" class="game-card">
                 <div class="card-image war-bg">🛡️</div>
                 <div class="card-content">
                     <div class="game-title">Last War</div>
@@ -197,12 +219,24 @@
             </a>
 
             <!-- Match3Saga Link -->
-            <a href="./Match3Saga/" class="game-card">
+            <a href="./games/Match3Saga/" class="game-card">
                 <div class="card-image match3-bg">🍬</div>
                 <div class="card-content">
                     <div class="game-title">Match-3 Saga</div>
                     <div class="game-desc">
                         달콤한 캔디 매치 3 퍼즐 게임입니다. 화려한 이펙트와 함께 터지는 캔디의 즐거움을 느껴보세요!
+                    </div>
+                    <div class="play-btn">Play Now &rarr;</div>
+                </div>
+            </a>
+
+            <!-- SkyDash Link -->
+            <a href="./games/SkyDash/" class="game-card">
+                <div class="card-image skydash-bg">🏃</div>
+                <div class="card-content">
+                    <div class="game-title">Sky Dash</div>
+                    <div class="game-desc">
+                        무한의 계단을 오르는 아케이드 게임입니다. 타이밍에 맞춰 방향을 바꾸고 끝없이 올라가보세요!
                     </div>
                     <div class="play-btn">Play Now &rarr;</div>
                 </div>
