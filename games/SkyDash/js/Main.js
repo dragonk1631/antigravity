@@ -116,10 +116,6 @@ class Main {
         this.sound.stopBGM();
         this.sound.startBGM('game');
 
-        // Switch to game music
-        this.sound.stopBGM();
-        this.sound.startBGM('game');
-
         document.getElementById('controls').style.display = 'flex';
         document.getElementById('score').style.display = 'block';
     }
