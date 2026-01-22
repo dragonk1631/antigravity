@@ -18,7 +18,7 @@ class Main {
         this.game = null;
         this.sound = new SoundManager();
 
-        this.currentState = 'LOBBY';
+        this.currentState = 'START';
 
         this.lastTime = 0;
 
@@ -61,31 +61,22 @@ class Main {
             btnRight.addEventListener(evt, (e) => handleEvent('CLIMB', e), { passive: false });
         });
 
-        // Global audio unlock
-        const initAudio = () => {
-            if (!this.musicStarted) {
-                this.sound.init();
-                this.sound.resume();
-                if (this.currentState === 'LOBBY') {
-                    this.sound.startBGM('lobby');
-                }
-                this.musicStarted = true;
-
-                // Remove listeners once initialized
-                ['mousedown', 'touchstart', 'keydown'].forEach(evt => {
-                    window.removeEventListener(evt, initAudio);
-                });
-            }
-        };
-
-        ['mousedown', 'touchstart', 'keydown'].forEach(evt => {
-            window.addEventListener(evt, initAudio);
-        });
-
         // Canvas click for menus AND game over buttons
         ['mousedown', 'touchstart'].forEach(evt => {
             this.canvas.addEventListener(evt, (e) => {
                 e.preventDefault();
+
+                // Handle START screen
+                if (this.currentState === 'START') {
+                    this.sound.init(); // Initialize audio context
+                    this.sound.resume();
+
+                    this.currentState = 'LOBBY';
+                    this.sound.startBGM('lobby');
+                    this.musicStarted = true;
+                    return;
+                }
+
                 const rect = this.canvas.getBoundingClientRect();
                 let clientX = e.clientX || (e.touches && e.touches[0].clientX);
                 let clientY = e.clientY || (e.touches && e.touches[0].clientY);
@@ -107,6 +98,17 @@ class Main {
         // Keyboard
         window.addEventListener('keydown', (e) => {
             if (e.repeat) return;
+
+            // Handle START screen with keyboard too
+            if (this.currentState === 'START') {
+                this.sound.init();
+                this.sound.resume();
+
+                this.currentState = 'LOBBY';
+                this.sound.startBGM('lobby');
+                this.musicStarted = true;
+                return;
+            }
 
             if (this.currentState === 'GAME' && this.game) {
                 if (e.code === 'ArrowLeft' || e.code === 'KeyZ') this.game.handleInput('TURN');
@@ -203,7 +205,9 @@ class Main {
     }
 
     update(dt) {
-        if (this.currentState === 'LOBBY') {
+        if (this.currentState === 'START') {
+            // No update logic needed
+        } else if (this.currentState === 'LOBBY') {
             this.lobby.update(dt);
         } else if (this.currentState === 'GAME' && this.game) {
             this.game.update(dt);
@@ -216,13 +220,42 @@ class Main {
         // Ensure transform is applied (some operations might reset it)
         this.ctx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
 
-        if (this.currentState === 'LOBBY') {
+        if (this.currentState === 'START') {
+            this.drawStartScreen();
+        } else if (this.currentState === 'LOBBY') {
             this.lobby.draw(this.ctx);
         } else if (this.currentState === 'GAME' && this.game) {
             this.game.draw(this.ctx);
         } else if (this.currentState === 'SETTINGS') {
             this.settingsScreen.draw(this.ctx);
         }
+    }
+
+    drawStartScreen() {
+        this.ctx.fillStyle = '#1e3c72';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        this.ctx.save();
+        this.ctx.textAlign = 'center';
+
+        // Title
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 80px Arial';
+        this.ctx.shadowColor = '#2ed573';
+        this.ctx.shadowBlur = 20;
+        this.ctx.fillText('SkyDash', this.width / 2, this.height / 2 - 50);
+
+        // CTA
+        this.ctx.shadowBlur = 0;
+        this.ctx.font = '30px Arial';
+
+        // Pulse effect
+        const scale = 1 + Math.sin(Date.now() / 300) * 0.1;
+        this.ctx.translate(this.width / 2, this.height / 2 + 50);
+        this.ctx.scale(scale, scale);
+        this.ctx.fillText('Tap to Start', 0, 0);
+
+        this.ctx.restore();
     }
 }
 
