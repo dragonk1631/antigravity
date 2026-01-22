@@ -370,8 +370,10 @@ class SoundManager {
     }
 
     startBGM() {
-        if (!this.ctx || this.isPlaying) return;
+        // Initialize audio context if not already done
         this.init();
+
+        if (!this.ctx || this.isPlaying) return;
         this.isPlaying = true;
 
         // Ensure context is running (user interaction requirement)
