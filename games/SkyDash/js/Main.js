@@ -61,19 +61,30 @@ class Main {
             btnRight.addEventListener(evt, (e) => handleEvent('CLIMB', e), { passive: false });
         });
 
+        // Global audio unlock
+        const initAudio = () => {
+            if (!this.musicStarted) {
+                this.sound.init();
+                this.sound.resume();
+                if (this.currentState === 'LOBBY') {
+                    this.sound.startBGM('lobby');
+                }
+                this.musicStarted = true;
+
+                // Remove listeners once initialized
+                ['mousedown', 'touchstart', 'keydown'].forEach(evt => {
+                    window.removeEventListener(evt, initAudio);
+                });
+            }
+        };
+
+        ['mousedown', 'touchstart', 'keydown'].forEach(evt => {
+            window.addEventListener(evt, initAudio);
+        });
+
         // Canvas click for menus AND game over buttons
         ['mousedown', 'touchstart'].forEach(evt => {
             this.canvas.addEventListener(evt, (e) => {
-                // Start lobby music on first interaction
-                if (!this.musicStarted) {
-                    this.sound.init();
-                    this.sound.resume();
-                    if (this.currentState === 'LOBBY') {
-                        this.sound.startBGM('lobby');
-                    }
-                    this.musicStarted = true;
-                }
-
                 e.preventDefault();
                 const rect = this.canvas.getBoundingClientRect();
                 let clientX = e.clientX || (e.touches && e.touches[0].clientX);
