@@ -1,31 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SkyDash</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SkyDash - Phaser 3 Edition</title>
+    <style>
+        /* [Standard Reset] ensures no CSS interferes with Phaser's internal layout */
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        /* Dedicated container for the game */
+        #game-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+        }
+    </style>
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="ui-layer">
-            <div id="score" style="display: none;">0</div>
-            <div id="controls" style="display: none;">
-                <button id="btn-left" class="game-btn"></button>
-                <button id="btn-right" class="game-btn"></button>
-            </div>
-        </div>
-    </div>
-    <script src="js/shaders.js"></script>
-    <script src="js/Renderer.js"></script>
-    <script src="js/Lobby.js"></script>
-    <script src="js/Settings.js"></script>
-    <script src="js/SoundManager.js"></script>
-    <script src="js/Game.js"></script>
-    <script src="js/Main.js"></script>
+    <div id="game-container"></div>
+
+    <!-- Scripts Layering -->
+    <script src="./src/GameConfig.js"></script>
+    <script src="./src/managers/GameManager.js"></script>
+    <script src="./src/managers/SoundManager.js"></script>
+    <script src="./src/objects/Player.js"></script>
+    <script src="./src/objects/Stair.js"></script>
+    <script src="./src/scenes/BootScene.js"></script>
+    <script src="./src/scenes/IntroScene.js"></script>
+    <script src="./src/scenes/MainMenuScene.js"></script>
+    <script src="./src/scenes/GameScene.js"></script>
+    <script src="./src/scenes/GameOverScene.js"></script>
+    <script src="./src/scenes/SettingsScene.js"></script>
+    <script src="./src/scenes/LeaderboardScene.js"></script>
+    <script src="./src/main.js"></script>
 </body>
 
 </html>
