@@ -15,6 +15,7 @@
             height: 100%;
             background-color: #000;
             overflow: hidden;
+            touch-action: none;
         }
 
         /* Dedicated container for the game */
@@ -35,20 +36,20 @@
 <body>
     <div id="game-container"></div>
 
-    <!-- Scripts Layering -->
-    <script src="./src/GameConfig.js"></script>
-    <script src="./src/managers/GameManager.js"></script>
-    <script src="./src/managers/SoundManager.js"></script>
-    <script src="./src/objects/Player.js"></script>
-    <script src="./src/objects/Stair.js"></script>
-    <script src="./src/scenes/BootScene.js"></script>
-    <script src="./src/scenes/IntroScene.js"></script>
-    <script src="./src/scenes/MainMenuScene.js"></script>
-    <script src="./src/scenes/GameScene.js"></script>
-    <script src="./src/scenes/GameOverScene.js"></script>
-    <script src="./src/scenes/SettingsScene.js"></script>
-    <script src="./src/scenes/LeaderboardScene.js"></script>
-    <script src="./src/main.js"></script>
+    <!-- Scripts Layering with Cache Busting -->
+    <script src="./src/GameConfig.js?v=0127"></script>
+    <script src="./src/managers/GameManager.js?v=0127"></script>
+    <script src="./src/managers/SoundManager.js?v=0127"></script>
+    <script src="./src/objects/Player.js?v=0127"></script>
+    <script src="./src/objects/Stair.js?v=0127"></script>
+    <script src="./src/scenes/BootScene.js?v=0127"></script>
+    <script src="./src/scenes/IntroScene.js?v=0127"></script>
+    <script src="./src/scenes/MainMenuScene.js?v=0127"></script>
+    <script src="./src/scenes/GameScene.js?v=0127"></script>
+    <script src="./src/scenes/GameOverScene.js?v=0127"></script>
+    <script src="./src/scenes/SettingsScene.js?v=0127"></script>
+    <script src="./src/scenes/LeaderboardScene.js?v=0127"></script>
+    <script src="./src/main.js?v=0127"></script>
 </body>
 
 </html>

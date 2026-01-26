@@ -514,19 +514,22 @@ class GameScene extends Phaser.Scene {
             this.handleClimb();
         });
 
-        // 터치 (화면 분할 유지 - 버튼이 있어도 전체 화면 터치 지원이 편할 수 있음. 원하면 제거 가능)
-        // 레퍼런스에 버튼이 명확하므로, 버튼 이외의 영역 터치는 비활성화하거나, 
-        // 사용자 편의를 위해 화면 반반 터치도 유지할지는 선택사항. 
-        // 여기서는 버튼 객체 자체에 이벤트를 걸었으므로 전역 터치는 일단 유지하되(PC 등의 빠른 조작 위해),
-        // 버튼과 겹치지 않게 주의.
+        // 모바일 터치 (화면 분할): 버튼 외 영역 터치 시에도 조작 가능하도록 지원
+        this.input.on('pointerdown', (pointer, currentlyOver) => {
+            // 버튼 자체를 누른 경우(currentlyOver에 객체가 있음)는 버튼 리스너가 처리하므로 무시
+            if (currentlyOver.length > 0) return;
 
-        // NOTE: 전역 터치가 있으면 버튼 누를 때 이중 동작할 수 있음. 
-        // GameObjects(버튼)이 이벤트를 먼저 잡고 stopPropagation 해야 함.
-        // 현재 Phaser에서 GameObject가 interactive하면 상위로 전파되지 않게 할 수 있음.
-
-        // 하지만 "버튼을 누르는 느낌"을 위해 전역 터치는 제거하고, Keyboard + Button Click만 남기는 것이 
-        // "UI 개편"의도에 맞음. 
-        // (기존 전역 터치 삭제)
+            // 화면 왼쪽 절반: 방향 전환
+            if (pointer.x < this.cameras.main.width / 2) {
+                if (this.turnButton) this.turnButton.press();
+                this.handleTurn();
+            }
+            // 화면 오른쪽 절반: 오르기
+            else {
+                if (this.climbButton) this.climbButton.press();
+                this.handleClimb();
+            }
+        });
     }
 
     handleTurn() {
