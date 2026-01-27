@@ -11,9 +11,13 @@ class GameScene extends Phaser.Scene {
 
     init(data) {
         this.mode = data.mode || 'infinite'; // 'infinite' or '100'
+        // GameManager의 currentMode도 동기화 (싱글톤이지만 명시적으로 설정)
+        this.gm.currentMode = this.mode;
     }
 
     create() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
         this.STEP_HEIGHT = GameConfig.STAIR.HEIGHT;
         this.STEP_WIDTH = GameConfig.STAIR.WIDTH;
 
@@ -86,6 +90,15 @@ class GameScene extends Phaser.Scene {
         // UI
         this.createUI();
 
+        // VFX 및 Speed Lines 초기화
+        this.vfx = new VFXManager(this);
+        this.speedLines = this.add.tileSprite(0, 0, width, height, 'pixel_smoke')
+            .setOrigin(0)
+            .setScrollFactor(0)
+            .setAlpha(0)
+            .setDepth(5)
+            .setTint(0xcccccc);
+
         // 초기 계단 및 플레이어 생성
         this.initStairs();
         const startX = this.cameras.main.centerX;
@@ -109,9 +122,15 @@ class GameScene extends Phaser.Scene {
 
         // 사운드 초기화 (첫 상호작용 대기)
         if (window.soundManager) {
-            window.soundManager.startBGM('game');
+            const bgmMode = (this.mode === '100') ? 'timeattack' : 'game';
+            window.soundManager.startBGM(bgmMode);
         }
+
+        // 씬 종료 시 리스너 해제 보장
+        this.events.on('shutdown', () => {
+        });
     }
+
 
     createUI() {
         const width = this.cameras.main.width;
@@ -159,7 +178,6 @@ class GameScene extends Phaser.Scene {
         pauseBtn.setSize(pauseBtnSize, pauseBtnSize);
         pauseBtn.setInteractive().on('pointerdown', () => {
             // Pause logic placeholder
-            console.log('Pause clicked');
             // this.scene.pause();
             // this.scene.launch('PauseScene'); 
         });
@@ -368,34 +386,35 @@ class GameScene extends Phaser.Scene {
     initStairs() {
         this.stairsData = [{ x: 0, y: 0 }];
         const startX = this.cameras.main.centerX;
-        const startY = this.cameras.main.height * 0.3; // 사용자가 변경한 0.3 기준 동기화
+        const startY = this.cameras.main.height * 0.3;
 
-        // 첫 계단
-        const firstStair = this.stairPool.length > 0 ? this.stairPool.pop() : new Stair(this, 0, 0, this.STEP_WIDTH, this.STEP_HEIGHT);
+        // 오브젝트 풀 미리 생성: 게임 중에는 새로 생성하지 않고 재활용만 함
+        // 화면에 보이는 계단 + 여유분 = 약 30개면 충분
+        const POOL_SIZE = 30;
+        for (let i = 0; i < POOL_SIZE; i++) {
+            const stair = new Stair(this, -1000, -1000, this.STEP_WIDTH, this.STEP_HEIGHT);
+            stair.setActive(false);
+            stair.setVisible(false);
+            this.stairPool.push(stair);
+            this.stairGroup.add(stair);
+        }
+
+        // 첫 계단 (풀에서 가져옴)
+        const firstStair = this.stairPool.pop();
         firstStair.reuse(startX, startY);
-
-        // 중요: 첫 계단 좌표 정보 명시 (부서지는 연출 지원)
         firstStair.gridX = 0;
         firstStair.gridY = 0;
 
-        this.stairGroup.add(firstStair);
-
         // 시작 시에는 무조건 플레이어의 초기 방향(오른쪽: 1)으로 몇 칸 생성
-        // 절대로 첫 칸부터 꺾이지 않도록 강제 패턴 삽입
         this.currentPattern = [1, 1, 1];
 
+        // 화면에 보이는 만큼만 초기 생성 (20개)
         for (let i = 0; i < 20; i++) {
-            if (this.mode === '100' && this.stairsData.length >= 100) break;
             this.addNextStair();
         }
     }
 
     addNextStair() {
-        // 100계단 모드에서는 100개까지만 생성
-        if (this.mode === '100' && this.stairsData.length >= 101) { // 0번 포함이므로 101개 데이터가 100계단
-            return;
-        }
-
         // 패턴이 비어있으면 새 패턴 생성
         if (this.currentPattern.length === 0) {
             this.generatePattern();
@@ -548,6 +567,20 @@ class GameScene extends Phaser.Scene {
 
         const nextGridX = this.player.gridX + this.player.direction;
         const nextGridY = this.player.gridY + 1;
+
+        // 100계단 모드 승리 조건: 100층 도달 시 게임 클리어
+        // 중요: targetStair 체크 전에 먼저 확인해야 함 (100층 계단이 없어도 클리어 처리)
+        if (this.mode === '100' && nextGridY >= 100) {
+            // 마지막 이동 애니메이션 (100층 위치로)
+            const targetX = this.cameras.main.centerX + (nextGridX * this.STEP_WIDTH);
+            const targetY = (this.cameras.main.height * 0.3) - (nextGridY * this.STEP_HEIGHT);
+            this.player.climbTo(targetX, targetY);
+
+            // 클리어 처리
+            this.gameClear();
+            return;
+        }
+
         const targetStair = this.stairsData[nextGridY];
 
         if (targetStair && targetStair.x === nextGridX) {
@@ -555,6 +588,17 @@ class GameScene extends Phaser.Scene {
             const targetY = (this.cameras.main.height * 0.3) - (nextGridY * this.STEP_HEIGHT);
 
             this.player.climbTo(targetX, targetY);
+
+            // 착지 파티클 및 임팩트 프레임 (Impact Frames)
+            this.vfx.playLanding(targetX, targetY);
+
+            // 고콤보 시 더욱 강렬한 임팩트 연출 (어지러움 방지를 위해 제거)
+            /*
+            if (this.combo >= 10) {
+                this.cameras.main.zoomTo(1.05, 50, 'Sine.easeInOut', true);
+                this.time.delayedCall(50, () => this.cameras.main.zoomTo(1.0, 100, 'Sine.easeInOut'));
+            }
+            */
 
             // 첫 이동 시 타이머 시작
             if (this.startTime === null) {
@@ -580,16 +624,11 @@ class GameScene extends Phaser.Scene {
 
             this.cleanupStairs();
 
-            // 100계단 모드 승리 조건
-            if (this.mode === '100' && this.score >= 100) {
-                this.gameClear();
-                return;
-            }
-
         } else {
             this.gameOver();
         }
     }
+
 
     gameClear() {
         this.isCleared = true;
@@ -623,7 +662,7 @@ class GameScene extends Phaser.Scene {
         // 결과 저장 (정상적으로 maxCombo 포함)
         this.gm.saveScore(this.mode, this.score, duration, this.maxCombo);
 
-        this.cameras.main.shake(200, 0.01);
+        // this.cameras.main.shake(200, 0.01); // 어지러움 유발로 인항 제거
         this.player.fall();
         if (window.soundManager) {
             window.soundManager.stopBGM();
@@ -646,19 +685,27 @@ class GameScene extends Phaser.Scene {
     }
 
     handleSuccessStep() {
-        this.score++;
+        // 점수 증가 (항상 1점)
+        this.score += 1;
         this.scoreText.setText(this.score);
 
-        // 시각 효과: 점수 텍스트 팝
+        // 시각 효과: 점수 텍스트 팝 (제거)
+        /*
         this.tweens.add({
             targets: this.scoreText,
             scale: 1.2,
             duration: 50,
             yoyo: true
         });
+        */
 
-        // 미세한 화면 흔들림 (타격감)
-        this.cameras.main.shake(50, 0.002);
+        // 화면 흔들림 고도화 (어지러움 유발로 인해 비활성화)
+        // const shakeIntensity = 0.002 + Math.min(this.combo * 0.0005, 0.015);
+        // this.cameras.main.shake(100, shakeIntensity);
+
+        // 속도선 효과 갱신 (콤보 10 이상부터 점점 선명해짐)
+        const speedAlpha = Math.min(Math.max(0, (this.combo - 10) / 20), 0.4);
+        this.speedLines.setAlpha(speedAlpha);
 
         // 콤보 증가 로직 (Full Gauge 조건)
         // 판정 기준: 에너지가 줄어들기 전(거의 100% 상태)에 입력했는지 체크
@@ -676,18 +723,23 @@ class GameScene extends Phaser.Scene {
                 this.comboCounterText.setText(`${this.combo} COMBO`);
                 this.comboCounterText.setVisible(true);
 
+                // (펄스 연출 제거)
+                /*
                 this.tweens.add({
                     targets: this.comboCounterText,
                     scale: 1.2,
                     duration: 50,
                     yoyo: true
                 });
+                */
             }
 
             // 큰 팝업 효과 (설정된 단위마다) - 타임어택 모드에서는 표시 안함 (타이머가 그 자리에 있음)
             if (this.mode !== '100' && this.combo > 0 && this.combo % GameConfig.COMBO.POPUP_THRESHOLD === 0) {
                 this.comboText.setVisible(true);
                 this.comboText.setText(`${this.combo} COMBO!`);
+                // (확대 연출 제거)
+                /*
                 this.comboText.setScale(1.5);
                 this.tweens.add({
                     targets: this.comboText,
@@ -695,7 +747,9 @@ class GameScene extends Phaser.Scene {
                     scaleY: 1,
                     duration: 100
                 });
+                */
             }
+
         } else {
             // "게이지가 가득 차 있지 않을 때" 이동하면 즉시 리셋
             this.combo = 0;
@@ -718,6 +772,7 @@ class GameScene extends Phaser.Scene {
         const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
         this.confettiManager.setParticleTint(colors[Math.floor(Math.random() * colors.length)]);
     }
+
 
     changeBackgroundTheme() {
         // 순차적인 시간의 흐름 (낮 -> 노을 -> 밤 -> 새벽 -> 낮)
@@ -791,6 +846,17 @@ class GameScene extends Phaser.Scene {
 
         if (this.energy <= 0) {
             this.gameOver();
+        }
+
+        // 오디오 환경 필터 업데이트 (고도에 따라)
+        if (window.soundManager) {
+            const intensity = Math.min(this.score / 200, 0.8); // 최대 80% 정도만 필터링 (가청성 유지)
+            window.soundManager.setEnvIntensity(intensity);
+        }
+
+        // 속도선 애니메이션
+        if (this.speedLines.alpha > 0) {
+            this.speedLines.tilePositionY -= 20; // 위로 흐르는 연출
         }
 
         // 배경색 부드러운 전환
