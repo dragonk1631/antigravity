@@ -38,23 +38,28 @@ class BootScene extends Phaser.Scene {
             const num = i.toString().padStart(2, '0');
             const key = `player${num}`;
 
-            // 1. 로드된 이미지의 프레임 정보를 바탕으로 4x4 격자 크기 계산
+            // 1. 로드된 이미지의 소스 객체를 직접 가져와 4x4 격자 크기 계산
             const texture = this.textures.get(key);
             if (!texture || texture.key === '__MISSING') {
                 console.warn(`[Boot] Texture ${key} not found.`);
                 continue;
             }
 
-            const frame = texture.get();
-            const frameWidth = Math.max(1, Math.floor(frame.width / 4));
-            const frameHeight = Math.max(1, Math.floor(frame.height / 4));
+            const sourceImage = texture.getSourceImage();
+            if (!sourceImage) {
+                console.warn(`[Boot] Source image for ${key} is null.`);
+                continue;
+            }
 
-            // 2. 기존 이미지를 spritesheet로 재구성 (키 직접 사용으로 안전성 확보)
+            const frameWidth = Math.max(1, Math.floor(sourceImage.width / 4));
+            const frameHeight = Math.max(1, Math.floor(sourceImage.height / 4));
+
+            // 2. 기존 이미지를 spritesheet로 재구성 (이미지 객체 직접 사용)
             if (this.textures.exists(`${key}_sheet`)) {
                 this.textures.remove(`${key}_sheet`);
             }
 
-            this.textures.addSpriteSheet(`${key}_sheet`, key, {
+            this.textures.addSpriteSheet(`${key}_sheet`, sourceImage, {
                 frameWidth: frameWidth,
                 frameHeight: frameHeight
             });
