@@ -498,16 +498,25 @@ class SoundManager extends Phaser.Events.EventEmitter {
     }
 
     /**
-     * MIDI 파일 BGM 재생 (MIDIjs 사용)
+     * MIDI 파일 BGM 재생 (MidiPlayer 사용)
      */
-    startMidiBGM(mode) {
+    async startMidiBGM(mode) {
         const midiPath = this.midiPaths[mode] || this.midiPaths.menu;
 
-        // MIDIjs 라이브러리가 로드되어 있는지 확인
-        if (typeof MIDIjs !== 'undefined') {
-            MIDIjs.play(midiPath);
+        // MidiPlayer가 로드되어 있는지 확인
+        if (window.midiPlayer) {
+            try {
+                const success = await window.midiPlayer.play(midiPath, true);
+                if (!success) {
+                    console.warn('[SoundManager] MIDI 재생 실패. FM 모드로 폴백합니다.');
+                    this.startFMBGM(mode);
+                }
+            } catch (e) {
+                console.error('[SoundManager] MIDI 재생 에러:', e);
+                this.startFMBGM(mode);
+            }
         } else {
-            console.warn('MIDIjs 라이브러리가 로드되지 않았습니다. FM 모드로 폴백합니다.');
+            console.warn('[SoundManager] MidiPlayer가 로드되지 않았습니다. FM 모드로 폴백합니다.');
             this.startFMBGM(mode);
         }
     }
@@ -706,8 +715,8 @@ class SoundManager extends Phaser.Events.EventEmitter {
             this.timerID = null;
         }
         // MIDI 모드 정지
-        if (typeof MIDIjs !== 'undefined') {
-            MIDIjs.stop();
+        if (window.midiPlayer) {
+            window.midiPlayer.stop();
         }
         this.currentMode = null;
     }
