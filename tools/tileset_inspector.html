@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tileset Inspector</title>
+    <style>
+        body {
+            background: #222;
+            color: #fff;
+            font-family: sans-serif;
+        }
+
+        #container {
+            position: relative;
+            display: inline-block;
+        }
+
+        canvas {
+            border: 1px solid #555;
+            cursor: crosshair;
+        }
+
+        #info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        input {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px;
+            width: 60px;
+        }
+
+        .label {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <h3>Tileset Inspector</h3>
+        <div class="label">Tile Size:</div>
+        <input type="number" id="tileSize" value="32"> px
+        <hr>
+        <p>Index: <span id="idx">-</span></p>
+        <p>Coord: <span id="coord">-</span></p>
+        <p>Pixel: <span id="pixel">-</span></p>
+        <hr>
+        <p><small>Click a tile to see its details.</small></p>
+    </div>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        let currentTileSize = 32;
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            render();
+        };
+        // Using relative path for the game directory
+        img.src = '../games/SkyDash/assets/images/tileset/legacy_atlas.png';
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+
+            for (let x = 0; x < canvas.width; x += currentTileSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += currentTileSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        document.getElementById('tileSize').addEventListener('input', (e) => {
+            currentTileSize = parseInt(e.target.value) || 32;
+            render();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+
+            const tx = Math.floor(px / currentTileSize);
+            const ty = Math.floor(py / currentTileSize);
+            const idx = ty * Math.floor(canvas.width / currentTileSize) + tx;
+
+            document.getElementById('pixel').innerText = `${Math.floor(px)}, ${Math.floor(py)}`;
+            document.getElementById('coord').innerText = `${tx}, ${ty}`;
+            document.getElementById('idx').innerText = idx;
+        });
+    </script>
+</body>
+
+</html>

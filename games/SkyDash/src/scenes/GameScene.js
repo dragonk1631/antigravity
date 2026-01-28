@@ -68,12 +68,12 @@ class GameScene extends Phaser.Scene {
         this.targetBgColor = 0x34495e;
         this.currentBgColor = new Phaser.Display.Color(52, 73, 94);
 
-        // --- 테마 인덱스 설정 (legacy_atlas용) ---
+        // --- 테마 인덱스 설정 (legacy_atlas용 블록 타일 지정) ---
         this.THEMES = {
-            GRASS: { name: 'Grass', frame: 450, sky: 0x87ceeb },  // 초원
-            SNOW: { name: 'Snow', frame: 461, sky: 0xe0ffff },  // 설원
-            CASTLE: { name: 'Castle', frame: 10, sky: 0x2c3e50 },  // 성 내부
-            DESERT: { name: 'Desert', frame: 512, sky: 0xf4a460 }  // 사막
+            GRASS: { name: 'Grass', frame: 482, sky: 0x87ceeb },  // 초원 블록
+            SNOW: { name: 'Snow', frame: 494, sky: 0xe0ffff },  // 설원 블록
+            CASTLE: { name: 'Castle', frame: 514, sky: 0x2c3e50 },  // 성벽 블록
+            DESERT: { name: 'Desert', frame: 530, sky: 0xf4a460 }  // 사막 블록
         };
         const themeKeys = Object.keys(this.THEMES);
         this.currentTheme = this.THEMES[themeKeys[Math.floor(Math.random() * themeKeys.length)]];
