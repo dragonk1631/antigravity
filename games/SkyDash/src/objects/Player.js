@@ -22,8 +22,10 @@ class Player extends Phaser.GameObjects.Container {
             this.aura = { setVisible: () => { }, clear: () => { } };
         }
 
-        // 플레이어 인덱스 (기본값 player01)
-        this.playerIndex = scene.gm?.settings.playerIndex || 1;
+        // 플레이어 인덱스 (기본값 player01, 현재 24종 에셋 존재)
+        let pIdx = scene.gm?.settings.playerIndex || 1;
+        pIdx = Math.max(1, Math.min(24, pIdx)); // 안전하게 24번까지만 제한
+        this.playerIndex = pIdx;
         const playerKey = `player${this.playerIndex.toString().padStart(2, '0')}`;
         this.playerKey = playerKey;
 

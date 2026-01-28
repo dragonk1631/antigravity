@@ -15,8 +15,8 @@ class BootScene extends Phaser.Scene {
         // 에셋 로드 (플레이스홀더 및 리소스)
         // ------------------------------------
 
-        // 25종 플레이어 에셋 일괄 로드
-        for (let i = 1; i <= 25; i++) {
+        // 24종 플레이어 에셋 일괄 로드
+        for (let i = 1; i <= 24; i++) {
             const num = i.toString().padStart(2, '0');
             this.load.spritesheet(`player${num}`, `assets/images/player/player${num}.png`, { frameWidth: 32, frameHeight: 48 });
         }
@@ -31,16 +31,13 @@ class BootScene extends Phaser.Scene {
         // SoundManager 및 MidiPlayer 초기화
         window.soundManager = new SoundManager(this.sound);
 
-        // 핵심 악기 사전 로딩 (피아노, 드럼) - 백그라운드 진행
+        // 핵심 악기 사전 로딩 (MIDI 엔진 초기화)
         if (window.midiPlayer) {
-            window.midiPlayer.init().then(() => {
-                window.midiPlayer.loadInstrument(0);
-                window.midiPlayer.loadInstrument(128);
-            });
+            window.midiPlayer.init();
         }
 
-        // 25종 플레이어별 애니메이션 자동 생성
-        for (let i = 1; i <= 25; i++) {
+        // 24종 플레이어별 애니메이션 자동 생성
+        for (let i = 1; i <= 24; i++) {
             const num = i.toString().padStart(2, '0');
             const key = `player${num}`;
 

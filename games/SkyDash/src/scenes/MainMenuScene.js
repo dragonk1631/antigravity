@@ -82,9 +82,9 @@ class MainMenuScene extends Phaser.Scene {
         const offset = 180;
         const previewScale = 4.0;
 
-        // 현재 인덱스 및 순환 함수
+        // 현재 인덱스 및 순환 함수 (24종 기준)
         const currentIndex = this.gm.settings.playerIndex || 1;
-        const getIndex = (idx) => ((idx - 1 + 25) % 25) + 1;
+        const getIndex = (idx) => ((idx - 1 + 24) % 24) + 1;
 
         const prevIndex = getIndex(currentIndex - 1);
         const nextIndex = getIndex(currentIndex + 1);
