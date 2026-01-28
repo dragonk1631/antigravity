@@ -152,9 +152,21 @@ class GameScene extends Phaser.Scene {
         this.energyBarBg.fillRoundedRect(barX, barY, barWidth, barHeight, 8);
         this.hudContainer.add(this.energyBarBg);
 
-        // Energy Bar Fill
-        this.energyBar = this.add.graphics();
-        this.hudContainer.add(this.energyBar);
+        // Energy Bar Fill (이미지 기반 - 성능 최적화)
+        // 텍스처가 없으면 미리 생성 (한 번만)
+        if (!this.textures.exists('energyBarFill')) {
+            const g = this.make.graphics({ x: 0, y: 0, add: false });
+            g.fillStyle(0xffffff, 1);
+            g.fillRoundedRect(0, 0, barWidth, barHeight, 8);
+            g.generateTexture('energyBarFill', barWidth, barHeight);
+            g.destroy();
+        }
+        this.energyBarFill = this.add.image(barX, barY, 'energyBarFill');
+        this.energyBarFill.setOrigin(0, 0);
+        this.energyBarFill.setTint(0xff9f43); // 기본 오렌지색
+        this.energyBarMaxWidth = barWidth; // update에서 사용할 최대 너비 저장
+        this.energyBarX = barX;
+        this.hudContainer.add(this.energyBarFill);
 
         // Pause Button (Top Right)
         const pauseBtnSize = 60;
@@ -820,29 +832,16 @@ class GameScene extends Phaser.Scene {
         const difficultyMultiplier = 1 + (this.score / GameConfig.ENERGY.DIFFICULTY_SCALE);
         this.energy -= this.energyDecay * difficultyMultiplier * dt;
 
-        // 에너지 바 업데이트 (설정값 사용)
-        this.energyBar.clear();
-
-        const barWidth = this.cameras.main.width * GameConfig.UI.BAR_WIDTH_PERCENT;
-        const barHeight = GameConfig.UI.BAR_HEIGHT;
-        const barX = (this.cameras.main.width - barWidth) / 2;
-        const barY = GameConfig.UI.BAR_Y;
-
+        // 에너지 바 업데이트 (이미지 기반 - 매 프레임 Graphics 호출 제거)
         const fillPercent = Math.max(0, this.energy / this.maxEnergy);
-        const fillWidth = barWidth * fillPercent;
 
-        // Fill color based on energy level
+        // scaleX로 크기 조절 (성능 최적화: clear/fillRoundedRect 제거)
+        this.energyBarFill.setScale(fillPercent, 1);
+
+        // 색상 변경 (에너지 레벨에 따라)
         let fillColor = 0xe74c3c; // Redish default
         if (fillPercent > 0.5) fillColor = 0xff9f43; // Orange
-        // if (fillPercent > 0.8) fillColor = 0x2ecc71; // Green
-
-        this.energyBar.fillStyle(fillColor, 1);
-        // Draw fill inside the rounded container border
-        // Simple rect for fill, handled by mask or just drawing slightly smaller? 
-        // We will just draw a rounded rect slightly smaller
-        if (fillWidth > 0) {
-            this.energyBar.fillRoundedRect(barX, barY, fillWidth, barHeight, 8);
-        }
+        this.energyBarFill.setTint(fillColor);
 
         if (this.energy <= 0) {
             this.gameOver();

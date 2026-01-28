@@ -12,7 +12,8 @@ const config = {
     roundPixels: true, // 서브 픽셀 렌더링 방지 (가독성 향상)
     scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH // Native centering within the parent
+        autoCenter: Phaser.Scale.CENTER_BOTH, // Native centering within the parent
+        resolution: 1 // 모바일 DPR(2~3x)로 인한 과도한 캔버스 크기 방지
     },
     physics: {
         default: 'arcade',
