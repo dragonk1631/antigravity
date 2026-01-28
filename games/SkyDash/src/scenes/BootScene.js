@@ -21,10 +21,10 @@ class BootScene extends Phaser.Scene {
             this.load.image(`player${num}`, `assets/images/player/player${num}.png`);
         }
 
-        // 타일셋 로드 (32x32 타일 규격으로 복구 - 잘림 방지)
+        // 타일셋 로드 (16x16 타일 규격)
         this.load.spritesheet('tileset', 'assets/images/tileset/legacy_atlas.png', {
-            frameWidth: 32,
-            frameHeight: 32
+            frameWidth: 16,
+            frameHeight: 16
         });
 
         // 사운드 매니저 초기화 (오디오 컨텍스트 등)
