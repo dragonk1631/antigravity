@@ -15,8 +15,12 @@ class Stair extends Phaser.GameObjects.Container {
         // 1. 타일셋 이미지가 지정된 경우 해당 타일 사용, 없으면 Graphics 텍스처 사용
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
             this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
-            // 타일 규격(32x32)을 게임의 계단 크기(100x80)에 맞춰 스케일 조정
-            this.stairImage.setDisplaySize(90, 45); // 원본 비율보다 약간 넓게 설정하여 안정감 제공
+            // 타일 규격(16x16)을 게임의 계단 크기(100x80)에 맞춰 스케일 조정
+            this.stairImage.setDisplaySize(90, 45);
+
+            // 377번 인덱스일 경우 플레이어 방향에 따라 좌우 반전 처리 가능
+            // (기본 프레임이 한쪽 방향 계단이라면, 반대 방향일 때 flipX 처리)
+            // 현재는 생성 시 기본 orientation을 받지 않으므로 reuse에서 처리하도록 설계
         } else {
             // 정적 텍스처 생성 (한 번만 - 성능 최적화) 폴백
             if (!scene.textures.exists('stair_texture')) {
@@ -95,8 +99,12 @@ class Stair extends Phaser.GameObjects.Container {
 
     /**
      * 오브젝트 풀에서 재사용을 위해 상태를 초기화합니다.
+     * @param {number} x
+     * @param {number} y
+     * @param {number|null} tileFrame
+     * @param {number} direction 1 (오른쪽 위), -1 (왼쪽 위)
      */
-    reuse(x, y, tileFrame = null) {
+    reuse(x, y, tileFrame = null, direction = 1) {
         this.isShattered = false;
         this.setPosition(x, y);
         this.setActive(true);
@@ -108,9 +116,17 @@ class Stair extends Phaser.GameObjects.Container {
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
             this.stairImage.setTexture('tileset', tileFrame);
             this.stairImage.setDisplaySize(90, 45);
+
+            // 377번 계단 타일의 좌우 반전 처리
+            // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
+            if (tileFrame === 377) {
+                this.stairImage.setFlipX(direction === -1);
+            } else {
+                this.stairImage.setFlipX(false);
+            }
         } else if (!this.tileFrame) {
-            // 기존 Graphics 텍스처로 복구 (타일셋을 안 쓰는 경우)
             this.stairImage.setTexture('stair_texture');
+            this.stairImage.setFlipX(false);
         }
     }
 

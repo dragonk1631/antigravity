@@ -68,15 +68,15 @@ class GameScene extends Phaser.Scene {
         this.targetBgColor = 0x34495e;
         this.currentBgColor = new Phaser.Display.Color(52, 73, 94);
 
-        // --- 테마 인덱스 설정 (legacy_atlas용 블록 타일 지정) ---
+        // --- 테마 인덱스 설정 (16x16 legacy_atlas 기준) ---
         this.THEMES = {
-            GRASS: { name: 'Grass', frame: 482, sky: 0x87ceeb },  // 초원 블록
-            SNOW: { name: 'Snow', frame: 494, sky: 0xe0ffff },  // 설원 블록
-            CASTLE: { name: 'Castle', frame: 514, sky: 0x2c3e50 },  // 성벽 블록
-            DESERT: { name: 'Desert', frame: 530, sky: 0xf4a460 }  // 사막 블록
+            CLASSIC: {
+                name: 'Classic',
+                frame: 377,
+                sky: 0x87ceeb
+            }
         };
-        const themeKeys = Object.keys(this.THEMES);
-        this.currentTheme = this.THEMES[themeKeys[Math.floor(Math.random() * themeKeys.length)]];
+        this.currentTheme = this.THEMES.CLASSIC;
         this.bgColor = this.currentTheme.sky;
         this.targetBgColor = this.currentTheme.sky;
 
@@ -454,7 +454,7 @@ class GameScene extends Phaser.Scene {
 
         // 첫 계단 (풀에서 가져옴)
         const firstStair = this.stairPool.pop();
-        firstStair.reuse(startX, startY, this.currentTheme.frame);
+        firstStair.reuse(startX, startY, this.currentTheme.frame, 1); // 첫 방향은 오른쪽(1)
         firstStair.gridX = 0;
         firstStair.gridY = 0;
 
@@ -490,10 +490,12 @@ class GameScene extends Phaser.Scene {
         if (this.stairPool.length > 0) {
             // 풀에 놀고 있는 계단이 있으면 재사용
             stairObj = this.stairPool.pop();
-            stairObj.reuse(screenX, screenY, currentFrame);
+            stairObj.reuse(screenX, screenY, currentFrame, nextXOffset);
         } else {
             // 없으면 새로 생성
             stairObj = new Stair(this, screenX, screenY, this.STEP_WIDTH, this.STEP_HEIGHT, currentFrame);
+            // 생성 직후에도 방향 반영을 위해 reuse 강제 호출 (또는 생성자 수정 가능하나 안전하게 reuse 활용)
+            stairObj.reuse(screenX, screenY, currentFrame, nextXOffset);
             this.stairGroup.add(stairObj);
         }
 
