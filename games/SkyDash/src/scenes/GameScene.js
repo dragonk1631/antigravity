@@ -783,17 +783,7 @@ class GameScene extends Phaser.Scene {
             // 큰 팝업 효과 (설정된 단위마다) - 타임어택 모드에서는 표시 안함 (타이머가 그 자리에 있음)
             if (this.mode !== '100' && this.combo > 0 && this.combo % GameConfig.COMBO.POPUP_THRESHOLD === 0) {
                 this.comboText.setVisible(true);
-                this.comboText.setText(`${this.combo} COMBO!`);
-                // (확대 연출 제거)
-                /*
-                this.comboText.setScale(1.5);
-                this.tweens.add({
-                    targets: this.comboText,
-                    scaleX: 1,
-                    scaleY: 1,
-                    duration: 100
-                });
-                */
+                this.comboText.setText(`${this.combo}${I18nManager.get('game.combo_popup')}`);
             }
 
         } else {

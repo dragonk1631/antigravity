@@ -21,7 +21,7 @@ class LeaderboardScene extends Phaser.Scene {
         }
 
         // 타이틀
-        this.add.text(width / 2, 60, 'LEADERBOARD', {
+        this.add.text(width / 2, 60, I18nManager.get('leaderboard.title'), {
             fontFamily: 'Arial',
             fontSize: '48px',
             fontStyle: 'bold',
@@ -31,15 +31,15 @@ class LeaderboardScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // 탭 버튼 (Infinite / 100 Steps)
-        this.createTabButton(width / 2 - 120, 140, 'Infinite', 'infinite');
-        this.createTabButton(width / 2 + 120, 140, '100 Steps', '100');
+        this.createTabButton(width / 2 - 120, 140, I18nManager.get('leaderboard.infinite'), 'infinite');
+        this.createTabButton(width / 2 + 120, 140, I18nManager.get('leaderboard.100steps'), '100');
 
         // 리스트 컨테이너
         this.listContainer = this.add.container(0, 200);
 
         // 뒤로가기
         const backBtn = this.add.rectangle(width / 2, height - 80, 200, 60, 0x666666).setInteractive();
-        this.add.text(width / 2, height - 80, 'Back', { fontSize: '24px' }).setOrigin(0.5);
+        this.add.text(width / 2, height - 80, I18nManager.get('leaderboard.back'), { fontSize: '24px' }).setOrigin(0.5);
         backBtn.on('pointerdown', () => this.scene.start('MainMenuScene'));
 
         // 초기 보기: Infinite
@@ -66,13 +66,13 @@ class LeaderboardScene extends Phaser.Scene {
         const rowHeight = 50;
 
         // 헤더
-        const headerText = mode === 'infinite' ? 'Rank   Score   Combo   Date' : 'Rank   Time   Combo   Date';
+        const headerText = mode === 'infinite' ? I18nManager.get('leaderboard.header_infinite') : I18nManager.get('leaderboard.header_100');
         this.listContainer.add(this.add.text(360, -30, headerText, {
             fontSize: '20px', color: '#888888'
         }).setOrigin(0.5));
 
         if (data.length === 0) {
-            this.listContainer.add(this.add.text(360, 100, 'No Records Yet', {
+            this.listContainer.add(this.add.text(360, 100, I18nManager.get('leaderboard.no_records'), {
                 fontSize: '28px', color: '#555555'
             }).setOrigin(0.5));
             return;
@@ -86,7 +86,7 @@ class LeaderboardScene extends Phaser.Scene {
             if (mode === 'infinite') {
                 scoreStr = `${entry.score}`;
             } else {
-                scoreStr = entry.score >= 100 ? `${entry.time.toFixed(2)}s` : `${entry.score} (Fail)`;
+                scoreStr = entry.score >= 100 ? `${entry.time.toFixed(2)}s` : `${entry.score} ${I18nManager.get('leaderboard.fail')}`;
             }
 
             const date = new Date(entry.date).toLocaleDateString();

@@ -28,15 +28,29 @@ class GameManager {
             this.settings = JSON.parse(saved);
             // 새 설정 항목이 없으면 기본값 추가
             this.settings.musicMode = 'midi'; // 'midi' 전용으로 고정
+            if (!this.settings.language) {
+                this.settings.language = this.detectBrowserLanguage();
+            }
         } else {
             // 기본 설정
             this.settings = {
                 characterColor: '#f39c12',
                 stairColor: '#2ed573',
                 bgColor: '#1e3c72',
-                musicMode: 'midi' // MIDI 파일 재생 전용
+                musicMode: 'midi', // MIDI 파일 재생 전용
+                language: this.detectBrowserLanguage()
             };
         }
+    }
+
+    /**
+     * 브라우저 언어를 감지하여 지원되는 언어(en, ko, ja)를 반환합니다.
+     */
+    detectBrowserLanguage() {
+        const lang = (navigator.language || navigator.userLanguage).toLowerCase();
+        if (lang.startsWith('ko')) return 'ko';
+        if (lang.startsWith('ja')) return 'ja';
+        return 'en'; // 기본값 영어
     }
 
     /**

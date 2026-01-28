@@ -31,7 +31,7 @@ class GameOverScene extends Phaser.Scene {
         }
 
         // 결과 배너
-        const titleText = this.cleared ? 'SUCCESS!' : 'GAME OVER';
+        const titleText = this.cleared ? I18nManager.get('gameover.success') : I18nManager.get('gameover.failed');
         const titleColor = this.cleared ? '#2ecc71' : '#ff4757';
         this.add.text(width / 2, height / 4, titleText, {
             fontFamily: 'Arial Black', fontSize: '80px', color: titleColor,
@@ -41,7 +41,7 @@ class GameOverScene extends Phaser.Scene {
         // 신기록 및 경신 정보 표시
         if (this.mode === 'infinite') {
             if (this.improvement > 0) {
-                this.add.text(width / 2, height / 2 - 140, `🎉 신기록 경신! (+${this.improvement})`, {
+                this.add.text(width / 2, height / 2 - 140, I18nManager.get('gameover.new_record', { val: this.improvement }), {
                     fontFamily: 'Arial', fontSize: '32px', color: '#2ecc71', fontWeight: 'bold'
                 }).setOrigin(0.5);
             }
@@ -51,14 +51,14 @@ class GameOverScene extends Phaser.Scene {
                 let diffText = '';
                 let diffColor = '#ffffff';
                 if (this.previousBest === 0) {
-                    diffText = '첫 기록 달성!';
+                    diffText = I18nManager.get('gameover.first_record');
                 } else {
                     const diff = this.time - this.previousBest;
                     if (diff < 0) {
-                        diffText = `${Math.abs(diff).toFixed(2)}s 단축! (BEST)`;
+                        diffText = I18nManager.get('gameover.shorter', { val: Math.abs(diff).toFixed(2) });
                         diffColor = '#2ecc71';
                     } else {
-                        diffText = `${diff.toFixed(2)}s 오버`;
+                        diffText = I18nManager.get('gameover.over', { val: diff.toFixed(2) });
                         diffColor = '#e67e22';
                     }
                 }
@@ -67,7 +67,7 @@ class GameOverScene extends Phaser.Scene {
                 }).setOrigin(0.5);
             } else {
                 // 실패 시 진행도 표시 (신기록 경신 표시 안함)
-                this.add.text(width / 2, height / 2 - 140, `${this.score} / 100 STEPS`, {
+                this.add.text(width / 2, height / 2 - 140, `${this.score}${I18nManager.get('gameover.steps')}`, {
                     fontFamily: 'Arial', fontSize: '32px', color: '#aaaaaa', fontWeight: 'bold'
                 }).setOrigin(0.5);
             }
@@ -85,11 +85,11 @@ class GameOverScene extends Phaser.Scene {
 
         // 이전 기록 표시 (무한모드 혹은 타임어택 성공시에만)
         if (this.mode === 'infinite' && this.improvement > 0) {
-            this.add.text(width / 2, height / 2 + 75, `이전 기록: ${this.previousBest}`, {
+            this.add.text(width / 2, height / 2 + 75, I18nManager.get('gameover.prev_best', { val: this.previousBest }), {
                 fontFamily: 'Arial', fontSize: '24px', color: '#aaaaaa'
             }).setOrigin(0.5);
         } else if (this.mode === '100' && this.cleared && this.previousBest > 0) {
-            this.add.text(width / 2, height / 2 + 75, `이전 최고 기록: ${this.previousBest.toFixed(2)}s`, {
+            this.add.text(width / 2, height / 2 + 75, I18nManager.get('gameover.prev_highest', { val: this.previousBest.toFixed(2) }), {
                 fontFamily: 'Arial', fontSize: '24px', color: '#aaaaaa'
             }).setOrigin(0.5);
         }
@@ -97,8 +97,8 @@ class GameOverScene extends Phaser.Scene {
         // 버튼 컨테이너
         this.btnGroup = this.add.container(width / 2, height / 2 + 150);
 
-        this.restartBtn = this.createButton(0, 0, '🔄 다시 도전', 0x2ecc71);
-        this.menuBtn = this.createButton(0, 110, '🏠 메뉴로 이동', 0x34495e);
+        this.restartBtn = this.createButton(0, 0, I18nManager.get('gameover.restart'), 0x2ecc71);
+        this.menuBtn = this.createButton(0, 110, I18nManager.get('gameover.menu'), 0x34495e);
 
         this.btnGroup.add([this.restartBtn, this.menuBtn]);
 

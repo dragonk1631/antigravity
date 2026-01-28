@@ -22,7 +22,7 @@ class SettingsScene extends Phaser.Scene {
         }
 
         // 타이틀
-        this.add.text(width / 2, 60, 'SETTINGS', {
+        this.add.text(width / 2, 60, I18nManager.get('settings.title'), {
             fontFamily: 'Arial',
             fontSize: '42px',
             fontStyle: 'bold',
@@ -30,7 +30,7 @@ class SettingsScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // 뒤로가기 버튼
-        const backBtn = this.createButton(width / 2, height - 80, 'Back to Menu', () => {
+        const backBtn = this.createButton(width / 2, height - 80, I18nManager.get('settings.back'), () => {
             this.scene.start('MainMenuScene');
         });
 
@@ -40,15 +40,15 @@ class SettingsScene extends Phaser.Scene {
         ];
 
         // 1. 캐릭터 색상
-        this.add.text(50, 130, 'Character Color', { fontSize: '22px', color: '#aaaaaa' });
+        this.add.text(50, 130, I18nManager.get('settings.character_color'), { fontSize: '22px', color: '#aaaaaa' });
         this.createColorGrid(50, 165, colors, 'characterColor');
 
         // 2. 계단 색상
-        this.add.text(50, 310, 'Stair Color', { fontSize: '22px', color: '#aaaaaa' });
+        this.add.text(50, 310, I18nManager.get('settings.stair_color'), { fontSize: '22px', color: '#aaaaaa' });
         this.createColorGrid(50, 345, colors, 'stairColor');
 
         // 3. 배경 색상
-        this.add.text(50, 490, 'Background Color', { fontSize: '22px', color: '#aaaaaa' });
+        this.add.text(50, 490, I18nManager.get('settings.background_color'), { fontSize: '22px', color: '#aaaaaa' });
         this.createColorGrid(50, 525, colors, 'bgColor');
 
         // 미리보기 캐릭터 및 계단

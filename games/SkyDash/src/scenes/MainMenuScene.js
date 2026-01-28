@@ -8,6 +8,13 @@ class MainMenuScene extends Phaser.Scene {
         this.gm = new GameManager(); // 싱글톤
     }
 
+    preload() {
+        // 국기 아이콘 로드
+        this.load.image('flag_en', 'assets/images/ui/flag_usa.png');
+        this.load.image('flag_ko', 'assets/images/ui/flag_kor.png');
+        this.load.image('flag_ja', 'assets/images/ui/flag_jpn.png');
+    }
+
     create() {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
@@ -63,20 +70,84 @@ class MainMenuScene extends Phaser.Scene {
 
         // 4. 메뉴 버튼 생성
         const btnYStart = 450;
-        this.createMenuButton(width / 2, btnYStart, '🚀 무한 모드', 0x2ecc71, () => this.startGame('infinite'));
-        this.createMenuButton(width / 2, btnYStart + 100, '⏱ 100계단 타임어택', 0xe67e22, () => this.startGame('100'));
-        this.createMenuButton(width / 2, btnYStart + 200, '🏆 리더보드', 0x9b59b6, () => this.scene.start('LeaderboardScene'));
-        this.createMenuButton(width / 2, btnYStart + 300, '⚙ 설정', 0x34495e, () => this.scene.start('SettingsScene'));
+        this.createMenuButton(width / 2, btnYStart, I18nManager.get('menu.infinite'), 0x2ecc71, () => this.startGame('infinite'));
+        this.createMenuButton(width / 2, btnYStart + 100, I18nManager.get('menu.timeattack'), 0xe67e22, () => this.startGame('100'));
+        this.createMenuButton(width / 2, btnYStart + 200, I18nManager.get('menu.leaderboard'), 0x9b59b6, () => this.scene.start('LeaderboardScene'));
+        this.createMenuButton(width / 2, btnYStart + 300, I18nManager.get('menu.settings'), 0x34495e, () => this.scene.start('SettingsScene'));
 
         // 사운드 초기화 유도 가이드 (UI 하단)
-        this.add.text(width / 2, height - 50, 'Developed with Antigravity', {
+        this.add.text(width / 2, height - 120, I18nManager.get('menu.credit'), {
             fontFamily: 'Arial', fontSize: '20px', color: '#ffffff'
         }).setOrigin(0.5).setAlpha(0.6);
+
+        // 5. 언어 선택 버튼 (화면 하단 국기)
+        this.createLanguageSelector(width / 2, height - 60);
 
         // 메뉴 음악 시작
         if (window.soundManager) {
             window.soundManager.startBGM('menu');
         }
+    }
+
+    /**
+     * 언어 선택기 생성 (USA / KOREA / JAPAN 국기)
+     */
+    createLanguageSelector(x, y) {
+        const spacing = 110;
+
+        // USA Flag
+        this.createFlagIcon(x - spacing, y, 'en');
+
+        // Korea Flag
+        this.createFlagIcon(x, y, 'ko');
+
+        // Japan Flag
+        this.createFlagIcon(x + spacing, y, 'ja');
+    }
+
+    createFlagIcon(x, y, lang) {
+        const size = 64;
+        const container = this.add.container(x, y);
+        const currentLang = this.gm.settings.language || 'en';
+
+        // Background Glow for Active Language
+        if (currentLang === lang) {
+            const glow = this.add.circle(0, 0, size / 2 + 8, 0xffffff, 0.3);
+            container.add(glow);
+            this.tweens.add({
+                targets: glow,
+                alpha: 0.1,
+                duration: 1000,
+                yoyo: true,
+                loop: -1
+            });
+        }
+
+        // Flag Image (Circular assets generated)
+        const flag = this.add.image(0, 0, `flag_${lang}`).setInteractive();
+        flag.setDisplaySize(size, size);
+
+        container.add(flag);
+
+        flag.on('pointerdown', () => {
+            if (currentLang !== lang) {
+                if (window.soundManager) window.soundManager.playClimb();
+                this.gm.updateSetting('language', lang);
+                this.scene.restart();
+            }
+        });
+
+        // Hover effects
+        flag.on('pointerover', () => {
+            container.setScale(1.15);
+            flag.setTint(0xeeeeee);
+        });
+        flag.on('pointerout', () => {
+            container.setScale(1);
+            flag.clearTint();
+        });
+
+        return container;
     }
 
     createMenuButton(x, y, text, color, callback) {
