@@ -1,14 +1,26 @@
 /**
  * Player
  * 플레이어 캐릭터의 이동, 애니메이션, 상태를 관리하는 클래스입니다.
+ * 모바일 최적화: 잔상 효과 비활성화, 오오라 단순화
  */
 class Player extends Phaser.GameObjects.Container {
     constructor(scene, x, y) {
         super(scene, x, y);
         scene.add.existing(this);
-        // 오오라 레이어 (몸 뒤에 표시)
-        this.aura = scene.add.graphics();
-        this.add(this.aura);
+
+        // 모바일 감지
+        this.isMobile = scene.isMobile || false;
+
+        // 오오라 레이어 (몸 뒤에 표시) - 모바일에서는 단순화
+        if (!this.isMobile) {
+            this.aura = scene.add.graphics();
+            this.add(this.aura);
+            this.createAuraPulse();
+            this.aura.setVisible(false);
+        } else {
+            // 모바일에서는 더미 객체
+            this.aura = { setVisible: () => { }, clear: () => { } };
+        }
 
         this.sprite = scene.add.sprite(0, 0, 'player');
         this.add(this.sprite);
@@ -21,11 +33,11 @@ class Player extends Phaser.GameObjects.Container {
         this.direction = 1; // 1: Right, -1: Left
 
         this.updateDirection();
-        this.createAuraPulse();
-        this.aura.setVisible(false); // 초기 상태는 비활성
     }
 
     createAuraPulse() {
+        if (this.isMobile) return; // 모바일에서는 건너뜀
+
         this.scene.tweens.add({
             targets: this.aura,
             alpha: 0.3,
@@ -39,12 +51,11 @@ class Player extends Phaser.GameObjects.Container {
 
     updateDirection() {
         // 스프라이트가 이미 방향별로 존재하므로 별도의 FlipX 처리는 필요하지 않거나 상황에 맞춰야 합니다.
-        // 현재 BootScene에서 walk-left(4-7), walk-right(8-11)을 이미 지정했으므로 Flip 없이 재생합니다.
         if (this.direction === 1) {
             this.sprite.setFlipX(false);
             this.sprite.play('walk-right');
         } else {
-            this.sprite.setFlipX(false); // 이미 왼쪽을 보는 스프라이트이므로 Flip하지 않음
+            this.sprite.setFlipX(false);
             this.sprite.play('walk-left');
         }
 
@@ -53,8 +64,9 @@ class Player extends Phaser.GameObjects.Container {
     }
 
     drawCharacter() {
-        // This method is no longer used as character drawing is handled by the sprite.
-        // Keeping it empty for now, but it can be removed if confirmed unused.
+        // 모바일에서는 건너뜀
+        if (this.isMobile) return;
+
         this.aura.clear();
         // --- Aura (Dynamic Glow) ---
         this.aura.fillStyle(0xffffff, 0.4);
@@ -78,13 +90,18 @@ class Player extends Phaser.GameObjects.Container {
      * 계단을 오릅니다. 절대 좌표로 이동하여 위치 어긋남을 방지합니다.
      */
     climbTo(targetX, targetY) {
-        this.createAfterimage();
+        // 모바일에서는 잔상 효과 비활성화 (성능 최적화)
+        if (!this.isMobile) {
+            this.createAfterimage();
+        }
 
         this.gridX += this.direction;
         this.gridY += 1;
 
-        // 점프 시에만 오오라 활성화
-        this.aura.setVisible(true);
+        // 점프 시에만 오오라 활성화 (데스크톱만)
+        if (!this.isMobile) {
+            this.aura.setVisible(true);
+        }
 
         // Jump animation
         this.scene.tweens.add({
@@ -99,6 +116,7 @@ class Player extends Phaser.GameObjects.Container {
                 else this.sprite.play('walk-left', true);
                 this.sprite.anims.timeScale = 1.0;
 
+                // 스쿼시 효과 (모바일에서도 유지 - 가벼운 효과)
                 this.scene.tweens.add({
                     targets: this.sprite,
                     scaleY: 0.8,
@@ -108,13 +126,18 @@ class Player extends Phaser.GameObjects.Container {
             },
             onComplete: () => {
                 // 착지 시 오오라 비활성화 및 애니메이션 속도 감소 (대기 모드)
-                this.aura.setVisible(false);
+                if (!this.isMobile) {
+                    this.aura.setVisible(false);
+                }
                 this.sprite.anims.timeScale = 0.4;
             }
         });
     }
 
     createAfterimage() {
+        // 모바일에서는 호출되지 않음 (climbTo에서 체크)
+        if (this.isMobile) return;
+
         // 잔상 효과: 현재 플레이어 스프라이트의 텍스처와 프레임을 그대로 복제하여 잔상 생성
         const ghost = this.scene.add.sprite(this.x, this.y, 'player', this.sprite.frame.name);
 

@@ -1,6 +1,7 @@
 /**
  * Stair
  * 참고 이미지 스타일의 회색 콘크리트 계단 객체입니다.
+ * 모바일 최적화: 정적 텍스처 사용으로 매번 Graphics 드로잉 방지
  */
 class Stair extends Phaser.GameObjects.Container {
     constructor(scene, x, y, width, height) {
@@ -10,48 +11,62 @@ class Stair extends Phaser.GameObjects.Container {
         this.stepWidth = width;
         this.stepHeight = height;
 
-        this.graphics = scene.add.graphics();
-        this.add(this.graphics);
+        // 정적 텍스처 생성 (한 번만 - 성능 최적화)
+        if (!scene.textures.exists('stair_texture')) {
+            const g = scene.make.graphics({ x: 0, y: 0, add: false });
+            const w = 90;
+            const h = 35;
 
-        this.drawStair();
+            // 1. 하단 그림자/입체감 (어두운 회색)
+            g.fillStyle(0x444444, 1);
+            g.fillRoundedRect(-w / 2 + 45, 5, w, h, 4);
+
+            // 2. 메인 블록 몸체 (밝은 회색)
+            g.fillStyle(0xbdc3c7, 1);
+            g.fillRoundedRect(-w / 2 + 45, 0, w, h - 5, 4);
+
+            // 3. 디테일: 질감 표현 (점박이)
+            g.fillStyle(0x7f8c8d, 0.5);
+            const points = [[-20 + 45, 8], [10 + 45, 15], [25 + 45, 5], [-30 + 45, 18], [5 + 45, 22]];
+            points.forEach(p => {
+                g.fillCircle(p[0], p[1], 2);
+            });
+
+            // 4. 상단 하이라이트
+            g.fillStyle(0xffffff, 0.4);
+            g.fillRect(-w / 2 + 5 + 45, 2, w - 10, 3);
+
+            g.generateTexture('stair_texture', 90, 40);
+            g.destroy();
+        }
+
+        // 이미지 기반 계단 (Graphics 대신)
+        this.stairImage = scene.add.image(0, 0, 'stair_texture');
+        this.stairImage.setOrigin(0.5, 0);
+        this.add(this.stairImage);
     }
 
+    /**
+     * @deprecated 정적 텍스처 사용으로 더 이상 필요 없음
+     */
     drawStair() {
-        const w = 90; // 실제 보이는 너비
-        const h = 35; // 높이
-        this.graphics.clear();
-
-        // 1. 하단 그림자/입체감 (어두운 회색)
-        this.graphics.fillStyle(0x444444, 1);
-        this.graphics.fillRoundedRect(-w / 2, 5, w, h, 4);
-
-        // 2. 메인 블록 몸체 (밝은 회색)
-        // const stairBaseColor = parseInt(this.scene.gm.settings.stairColor.replace('#', '0x'));
-        this.graphics.fillStyle(0xbdc3c7, 1);
-        this.graphics.fillRoundedRect(-w / 2, 0, w, h - 5, 4);
-
-        // 3. 디테일: 질감 표현 (점박이)
-        this.graphics.fillStyle(0x7f8c8d, 0.5);
-        const points = [[-20, 8], [10, 15], [25, 5], [-30, 18], [5, 22]];
-        points.forEach(p => {
-            this.graphics.fillCircle(p[0], p[1], 2);
-        });
-
-        // 4. 상단 하이라이트
-        this.graphics.fillStyle(0xffffff, 0.4);
-        this.graphics.fillRect(-w / 2 + 5, 2, w - 10, 3);
+        // 정적 텍스처 사용으로 매 프레임 드로잉 제거
     }
 
     shatter() {
         if (this.isShattered) return;
         this.isShattered = true;
 
+        // 이미지 숨기기
+        this.stairImage.setVisible(false);
+
         const w = 90;
         const h = 35;
-        this.graphics.clear();
 
-        // Create shards
-        const shardsCount = 6;
+        // 모바일에서는 파편 수 50% 감소
+        const isMobile = this.scene.isMobile;
+        const shardsCount = isMobile ? 3 : 6;
+
         for (let i = 0; i < shardsCount; i++) {
             const shard = this.scene.add.graphics();
             const sx = this.x + (Math.random() - 0.5) * w;
@@ -67,7 +82,7 @@ class Stair extends Phaser.GameObjects.Container {
                 x: sx + (Math.random() - 0.5) * 100,
                 angle: Math.random() * 360,
                 alpha: 0,
-                duration: 600 + Math.random() * 400,
+                duration: isMobile ? 400 : 600 + Math.random() * 400, // 모바일: 빨리 사라짐
                 ease: 'Cubic.easeIn',
                 onComplete: () => shard.destroy()
             });
@@ -76,8 +91,7 @@ class Stair extends Phaser.GameObjects.Container {
         // Hide flag if any
         this.hideFlag();
 
-        // The container will be deactivated by GameScene later, 
-        // but we hide the visual immediately
+        // 컨테이너 숨김
         this.setVisible(false);
     }
 
@@ -89,12 +103,13 @@ class Stair extends Phaser.GameObjects.Container {
         this.setPosition(x, y);
         this.setActive(true);
         this.setVisible(true);
-        this.drawStair(); // 다시 그리기
+        this.stairImage.setVisible(true); // 이미지 다시 표시
         this.hideFlag(); // 재사용 시 깃발 숨김
     }
 
     /**
      * 계단 위에 순위 깃발을 표시합니다.
+     * 성능 최적화: 텍스처 기반 깃발 (미래 개선 가능)
      */
     showFlag(rank) {
         if (this.flagContainer) this.flagContainer.destroy();

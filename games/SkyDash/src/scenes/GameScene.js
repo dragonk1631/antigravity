@@ -28,6 +28,10 @@ class GameScene extends Phaser.Scene {
         this.startTime = null; // 첫 이동 시점에 설정
         this.endTime = 0;
         this.stairGroup = this.add.group();
+
+        // 모바일 감지 (성능 최적화용)
+        this.isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+        this.debugMode = true; // FPS 표시 활성화
         this.stairsData = [];
         this.stairPool = []; // 오브젝트 풀
         this.currentPattern = [];
@@ -76,13 +80,13 @@ class GameScene extends Phaser.Scene {
         particleGraphic.fillRect(0, 0, 8, 8);
         particleGraphic.generateTexture('confetti', 8, 8);
 
-        // 폭죽/컨페티 에미터
+        // 폭죽/컨페티 에미터 (모바일 최적화: NORMAL 블렌드 모드 사용)
         this.confettiManager = this.add.particles(0, 0, 'confetti', {
             speed: { min: 100, max: 300 },
             angle: { min: 220, max: 320 },
             scale: { start: 1, end: 0 },
-            blendMode: 'ADD',
-            lifespan: 1000,
+            blendMode: 'NORMAL', // 성능 최적화: ADD -> NORMAL (GPU 오버드로우 감소)
+            lifespan: this.isMobile ? 600 : 1000, // 모바일: 파티클 수명 단축
             gravityY: 400,
             emitting: false
         });
@@ -90,14 +94,18 @@ class GameScene extends Phaser.Scene {
         // UI
         this.createUI();
 
-        // VFX 및 Speed Lines 초기화
+        // VFX 및 Speed Lines 초기화 (모바일에서는 비활성화)
         this.vfx = new VFXManager(this);
-        this.speedLines = this.add.tileSprite(0, 0, width, height, 'pixel_smoke')
-            .setOrigin(0)
-            .setScrollFactor(0)
-            .setAlpha(0)
-            .setDepth(5)
-            .setTint(0xcccccc);
+        if (!this.isMobile) {
+            this.speedLines = this.add.tileSprite(0, 0, width, height, 'pixel_smoke')
+                .setOrigin(0)
+                .setScrollFactor(0)
+                .setAlpha(0)
+                .setDepth(5)
+                .setTint(0xcccccc);
+        } else {
+            this.speedLines = { alpha: 0, setAlpha: () => { }, tilePositionY: 0 }; // 더미 객체
+        }
 
         // 초기 계단 및 플레이어 생성
         this.initStairs();
@@ -246,6 +254,28 @@ class GameScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(1, 0).setScrollFactor(0).setDepth(110).setVisible(false);
         this.hudContainer.add(this.comboCounterText);
+
+        // --- FPS 디버그 카운터 (좌측 상단) ---
+        if (this.debugMode) {
+            this.fpsText = this.add.text(10, 10, 'FPS: 60', {
+                fontFamily: 'monospace',
+                fontSize: '20px',
+                color: '#00ff00',
+                backgroundColor: '#000000aa',
+                padding: { x: 5, y: 3 }
+            }).setScrollFactor(0).setDepth(200);
+            this.hudContainer.add(this.fpsText);
+
+            // 모바일 여부 표시
+            const deviceInfo = this.add.text(10, 35, this.isMobile ? '📱 Mobile' : '🖥️ Desktop', {
+                fontFamily: 'monospace',
+                fontSize: '16px',
+                color: '#ffff00',
+                backgroundColor: '#000000aa',
+                padding: { x: 5, y: 2 }
+            }).setScrollFactor(0).setDepth(200);
+            this.hudContainer.add(deviceInfo);
+        }
     }
 
     createControls(width, height) {
@@ -811,6 +841,16 @@ class GameScene extends Phaser.Scene {
 
         const dt = delta / 1000; // 초 단위
 
+        // FPS 업데이트 (디버그 모드)
+        if (this.debugMode && this.fpsText) {
+            const fps = Math.round(1000 / delta);
+            this.fpsText.setText(`FPS: ${fps}`);
+            // FPS에 따라 색상 변경 (60+ 녹색, 30-59 노랑, 30미만 빨강)
+            if (fps >= 55) this.fpsText.setColor('#00ff00');
+            else if (fps >= 30) this.fpsText.setColor('#ffff00');
+            else this.fpsText.setColor('#ff0000');
+        }
+
         // 타이머 업데이트
         if (this.mode === '100') {
             const t = this.startTime ? (Date.now() - this.startTime) / 1000 : 0;
@@ -847,23 +887,23 @@ class GameScene extends Phaser.Scene {
             this.gameOver();
         }
 
-        // 오디오 환경 필터 업데이트 (고도에 따라)
-        if (window.soundManager) {
-            const intensity = Math.min(this.score / 200, 0.8); // 최대 80% 정도만 필터링 (가청성 유지)
+        // 오디오 환경 필터 업데이트 (고도에 따라 - 5프레임마다 실행)
+        if (window.soundManager && time % 5 < 1) {
+            const intensity = Math.min(this.score / 200, 0.8);
             window.soundManager.setEnvIntensity(intensity);
         }
 
-        // 속도선 애니메이션
-        if (this.speedLines.alpha > 0) {
-            this.speedLines.tilePositionY -= 20; // 위로 흐르는 연출
+        // 속도선 애니메이션 (모바일이 아닐 때만)
+        if (!this.isMobile && this.speedLines.alpha > 0) {
+            this.speedLines.tilePositionY -= 20;
         }
 
-        // 배경색 부드러운 전환
-        if (this.bgColor !== this.targetBgColor) {
+        // 배경색 부드러운 전환 (3프레임마다 실행하여 성능 최적화)
+        if (this.bgColor !== this.targetBgColor && time % 3 < 1) {
             const current = Phaser.Display.Color.IntegerToColor(this.bgColor);
             const target = Phaser.Display.Color.IntegerToColor(this.targetBgColor);
 
-            const nextColor = Phaser.Display.Color.Interpolate.ColorWithColor(current, target, 100, 1);
+            const nextColor = Phaser.Display.Color.Interpolate.ColorWithColor(current, target, 100, 3);
             this.bgColor = Phaser.Display.Color.GetColor(nextColor.r, nextColor.g, nextColor.b);
 
             this.backgroundRect.setFillStyle(this.bgColor);
