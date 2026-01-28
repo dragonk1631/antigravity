@@ -121,8 +121,8 @@ class Player extends Phaser.GameObjects.Container {
             ease: 'Cubic.easeOut',
             onStart: () => {
                 // 점프 시 애니메이션 재생 (첫 프레임부터 시작하도록 강제, 속도 정상화)
-                if (this.direction === 1) this.sprite.play('walk-right', true);
-                else this.sprite.play('walk-left', true);
+                if (this.direction === 1) this.sprite.play(`${this.animPrefix}_walk-right`, true);
+                else this.sprite.play(`${this.animPrefix}_walk-left`, true);
                 this.sprite.anims.timeScale = 1.0;
 
                 // 스쿼시 효과 (모바일에서도 유지 - 가벼운 효과)
@@ -148,7 +148,7 @@ class Player extends Phaser.GameObjects.Container {
         if (this.isMobile) return;
 
         // 잔상 효과: 현재 플레이어 스프라이트의 텍스처와 프레임을 그대로 복제하여 잔상 생성
-        const ghost = this.scene.add.sprite(this.x, this.y, this.playerKey, this.sprite.frame.name);
+        const ghost = this.scene.add.sprite(this.x, this.y, this.textureKey, this.sprite.frame.name);
 
         // 현재 스케일, 각도, 뒤집기 상태 복사
         ghost.setScale(this.scaleX, this.scaleY);

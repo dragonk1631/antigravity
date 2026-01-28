@@ -40,11 +40,26 @@ class BootScene extends Phaser.Scene {
 
             // 1. 로드된 이미지의 실제 크기를 가져와서 4x4 격자로 나눔
             const texture = this.textures.get(key);
+            if (!texture || texture.key === '__MISSING') {
+                console.warn(`[Boot] Texture ${key} not found, skipping animation creation.`);
+                continue;
+            }
+
             const image = texture.getSourceImage();
-            const frameWidth = Math.floor(image.width / 4);
-            const frameHeight = Math.floor(image.height / 4);
+            if (!image || image.width === 0) {
+                console.warn(`[Boot] Image for ${key} is invalid or has 0 size.`);
+                continue;
+            }
+
+            const frameWidth = Math.max(1, Math.floor(image.width / 4));
+            const frameHeight = Math.max(1, Math.floor(image.height / 4));
 
             // 2. 기존 이미지를 spritesheet로 재구성
+            // 이미 존재한다면 제거 후 재생성 (Restart 대응)
+            if (this.textures.exists(`${key}_sheet`)) {
+                this.textures.remove(`${key}_sheet`);
+            }
+
             this.textures.addSpriteSheet(`${key}_sheet`, image, {
                 frameWidth: frameWidth,
                 frameHeight: frameHeight
@@ -52,6 +67,12 @@ class BootScene extends Phaser.Scene {
 
             // 3. 애니메이션 생성 (시트 키 사용)
             const sheetKey = `${key}_sheet`;
+
+            // 기존 애니메이션 삭제 (중복 생성 방지)
+            const animKeys = [`${key}_idle-front`, `${key}_walk-left`, `${key}_walk-right`];
+            animKeys.forEach(k => {
+                if (this.anims.exists(k)) this.anims.remove(k);
+            });
 
             this.anims.create({
                 key: `${key}_idle-front`,
