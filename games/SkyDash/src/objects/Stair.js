@@ -16,12 +16,11 @@ class Stair extends Phaser.GameObjects.Container {
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
             this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
 
-            // 픽셀 아트 잘림 방지를 위해 중앙 원점으로 설정하고 컨테이너 중앙에 배치
-            this.stairImage.setOrigin(0.5, 0.5);
-            this.stairImage.y = this.stepHeight / 2;
-
-            // 논리 영역을 가득 채우면서도 비율을 유지하려면 정사각형으로 크게 설정하는 것이 안전할 수 있음
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
+            // 픽셀 아트의 깨짐 및 잘림 방지를 위해 정수배 스케일링 적용 (16px * 7 = 112px, 16px * 5 = 80px)
+            // 112x80을 사용하여 논리 영역(100x80)을 충분히 덮으면서 선명도를 유지합니다.
+            this.stairImage.setDisplaySize(this.stepWidth + 12, this.stepHeight);
+            this.stairImage.setOrigin(0.5, 0);
+            this.stairImage.y = 0;
         } else {
             // 정적 텍스처 생성 (한 번만 - 성능 최적화) 폴백
             if (!scene.textures.exists('stair_texture')) {
@@ -116,9 +115,10 @@ class Stair extends Phaser.GameObjects.Container {
         // 타일 프레임 갱신
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
             this.stairImage.setTexture('tileset', tileFrame);
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
-            this.stairImage.setOrigin(0.5, 0.5);
-            this.stairImage.y = this.stepHeight / 2;
+            // 정수배 스케일링 유지
+            this.stairImage.setDisplaySize(this.stepWidth + 12, this.stepHeight);
+            this.stairImage.setOrigin(0.5, 0);
+            this.stairImage.y = 0;
 
             // 377번 계단 타일의 좌우 반전 처리
             // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
