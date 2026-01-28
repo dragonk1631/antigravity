@@ -28,8 +28,8 @@ class MainMenuScene extends Phaser.Scene {
         overlay.fillGradientStyle(0x000000, 0x000000, bgColor, bgColor, 0.3, 0.3, 0, 0);
         overlay.fillRect(0, 0, width, 500);
 
-        // 2. 타이틀 (상단 고정)
-        const title = this.add.text(width / 2, 200, 'SkyDash', {
+        // 2. 타이틀 (상단)
+        const title = this.add.text(width / 2, 160, 'SkyDash', {
             fontFamily: 'Arial Black',
             fontSize: '100px',
             color: '#ffffff',
@@ -40,27 +40,32 @@ class MainMenuScene extends Phaser.Scene {
 
         this.tweens.add({
             targets: title,
-            y: 190,
+            y: 150,
             duration: 2000,
             ease: 'Sine.easeInOut',
             yoyo: true,
             loop: -1
         });
 
-        // 3. 캐릭터 선택 시스템 (중앙 배치)
-        this.createCharacterSelector(width, height);
+        // 3. 모드 선택 버튼 (타이틀 바로 아래)
+        const modeBtnY = 320;
+        const modeSpacing = 100;
 
-        // 4. 메뉴 버튼들 (하단 배치로 조정 - 캐릭터와 겹치지 않게)
-        const btnY = height - 420;
-        const spacing = 100;
+        this.createMenuButton(width / 2, modeBtnY, I18nManager.get('menu.infinite'), 0x3498db, () => this.startGame('infinite'));
+        this.createMenuButton(width / 2, modeBtnY + modeSpacing, I18nManager.get('menu.timeattack'), 0xe67e22, () => this.startGame('100'));
 
-        this.createMenuButton(width / 2, btnY, I18nManager.get('menu.infinite'), 0x3498db, () => this.startGame('infinite'));
-        this.createMenuButton(width / 2, btnY + spacing, I18nManager.get('menu.timeattack'), 0xe67e22, () => this.startGame('100'));
-        this.createMenuButton(width / 2, btnY + spacing * 2, I18nManager.get('menu.leaderboard'), 0x27ae60, () => this.scene.start('LeaderboardScene'));
-        this.createMenuButton(width / 2, btnY + spacing * 3, I18nManager.get('menu.settings'), 0x7f8c8d, () => this.scene.start('SettingsScene'));
+        // 4. 캐릭터 선택 시스템 (모드 선택 아래)
+        this.createCharacterSelector(width, height, modeBtnY + modeSpacing + 180);
+
+        // 5. 기타 메뉴 버튼 (캐릭터 아래)
+        const otherBtnY = height - 280;
+        const otherSpacing = 90;
+
+        this.createMenuButton(width / 2, otherBtnY, I18nManager.get('menu.leaderboard'), 0x27ae60, () => this.scene.start('LeaderboardScene'));
+        this.createMenuButton(width / 2, otherBtnY + otherSpacing, I18nManager.get('menu.settings'), 0x7f8c8d, () => this.scene.start('SettingsScene'));
 
 
-        // 5. 크레딧 및 언어 선택기 (하단 끝)
+        // 6. 크레딧 및 언어 선택기 (하단 고정)
         this.add.text(width / 2, height - 30, I18nManager.get('menu.credit'), {
             fontSize: '18px', color: '#ffffff', alpha: 0.6
         }).setOrigin(0.5);
@@ -76,8 +81,7 @@ class MainMenuScene extends Phaser.Scene {
     /**
      * 캐릭터 선택기 생성 (좌우 실루엣 프리뷰 포함)
      */
-    createCharacterSelector(width, height) {
-        const centerY = 500; // 타이틀 아래, 버튼 위
+    createCharacterSelector(width, height, centerY = 600) {
         const centerX = width / 2;
         const offset = 180;
         const previewScale = 4.0;

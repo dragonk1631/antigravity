@@ -144,7 +144,7 @@ class Player extends Phaser.GameObjects.Container {
         if (this.isMobile) return;
 
         // 잔상 효과: 현재 플레이어 스프라이트의 텍스처와 프레임을 그대로 복제하여 잔상 생성
-        const ghost = this.scene.add.sprite(this.x, this.y, 'player', this.sprite.frame.name);
+        const ghost = this.scene.add.sprite(this.x, this.y, this.playerKey, this.sprite.frame.name);
 
         // 현재 스케일, 각도, 뒤집기 상태 복사
         ghost.setScale(this.scaleX, this.scaleY);
