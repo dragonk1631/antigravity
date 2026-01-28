@@ -15,7 +15,11 @@ class BootScene extends Phaser.Scene {
         // 에셋 로드 (플레이스홀더 및 리소스)
         // ------------------------------------
 
-        this.load.spritesheet('player', 'assets/images/player.png', { frameWidth: 32, frameHeight: 48 });
+        // 25종 플레이어 에셋 일괄 로드
+        for (let i = 1; i <= 25; i++) {
+            const num = i.toString().padStart(2, '0');
+            this.load.spritesheet(`player${num}`, `assets/images/player/player${num}.png`, { frameWidth: 32, frameHeight: 48 });
+        }
 
         // 사운드 매니저 초기화 (오디오 컨텍스트 등)
     }
@@ -35,27 +39,32 @@ class BootScene extends Phaser.Scene {
             });
         }
 
-        // 플레이어 애니메이션 생성 (복구)
-        this.anims.create({
-            key: 'idle-front',
-            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-            frameRate: 8,
-            repeat: -1
-        });
+        // 25종 플레이어별 애니메이션 자동 생성
+        for (let i = 1; i <= 25; i++) {
+            const num = i.toString().padStart(2, '0');
+            const key = `player${num}`;
 
-        this.anims.create({
-            key: 'walk-left',
-            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
-            frameRate: 24,
-            repeat: -1
-        });
+            this.anims.create({
+                key: `${key}_idle-front`,
+                frames: this.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1
+            });
 
-        this.anims.create({
-            key: 'walk-right',
-            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
-            frameRate: 24,
-            repeat: -1
-        });
+            this.anims.create({
+                key: `${key}_walk-left`,
+                frames: this.anims.generateFrameNumbers(key, { start: 4, end: 7 }),
+                frameRate: 24,
+                repeat: -1
+            });
+
+            this.anims.create({
+                key: `${key}_walk-right`,
+                frames: this.anims.generateFrameNumbers(key, { start: 8, end: 11 }),
+                frameRate: 24,
+                repeat: -1
+            });
+        }
 
         // 다음 씬으로 전환
         this.scene.start('IntroScene');

@@ -28,10 +28,8 @@ class MainMenuScene extends Phaser.Scene {
         overlay.fillGradientStyle(0x000000, 0x000000, bgColor, bgColor, 0.3, 0.3, 0, 0);
         overlay.fillRect(0, 0, width, 500);
 
-
-
-        // 2. 타이틀 (애니메이션 추가)
-        const title = this.add.text(width / 2, 250, 'SkyDash', {
+        // 2. 타이틀 (상단 고정)
+        const title = this.add.text(width / 2, 200, 'SkyDash', {
             fontFamily: 'Arial Black',
             fontSize: '100px',
             color: '#ffffff',
@@ -42,51 +40,128 @@ class MainMenuScene extends Phaser.Scene {
 
         this.tweens.add({
             targets: title,
-            y: 230,
+            y: 190,
             duration: 2000,
             ease: 'Sine.easeInOut',
             yoyo: true,
             loop: -1
         });
 
-        // 3. 플로팅 캐릭터 (브랜드 느낌)
-        const playerPreview = new Player(this, width / 2, height - 200);
-        // GameConfig에 설정된 프리뷰 전용 배율 적용
-        const previewScale = GameConfig.PLAYER.PREVIEW_SCALE || 4.0;
-        playerPreview.setScale(previewScale);
+        // 3. 캐릭터 선택 시스템 (중앙 배치)
+        this.createCharacterSelector(width, height);
 
-        // 정면 애니메이션 재생
-        if (playerPreview.sprite) {
-            playerPreview.sprite.play('idle-front');
-        }
-        this.tweens.add({
-            targets: playerPreview,
-            y: height - 250,
-            duration: 1500,
-            ease: 'Cubic.easeInOut',
-            yoyo: true,
-            loop: -1
-        });
+        // 4. 메뉴 버튼들 (하단 배치로 조정 - 캐릭터와 겹치지 않게)
+        const btnY = height - 420;
+        const spacing = 100;
 
-        // 4. 메뉴 버튼 생성
-        const btnYStart = 450;
-        this.createMenuButton(width / 2, btnYStart, I18nManager.get('menu.infinite'), 0x2ecc71, () => this.startGame('infinite'));
-        this.createMenuButton(width / 2, btnYStart + 100, I18nManager.get('menu.timeattack'), 0xe67e22, () => this.startGame('100'));
-        this.createMenuButton(width / 2, btnYStart + 200, I18nManager.get('menu.leaderboard'), 0x9b59b6, () => this.scene.start('LeaderboardScene'));
-        this.createMenuButton(width / 2, btnYStart + 300, I18nManager.get('menu.settings'), 0x34495e, () => this.scene.start('SettingsScene'));
+        this.createMenuButton(width / 2, btnY, I18nManager.get('menu.infinite'), 0x3498db, () => this.startGame('infinite'));
+        this.createMenuButton(width / 2, btnY + spacing, I18nManager.get('menu.timeattack'), 0xe67e22, () => this.startGame('100'));
+        this.createMenuButton(width / 2, btnY + spacing * 2, I18nManager.get('menu.leaderboard'), 0x27ae60, () => this.scene.start('LeaderboardScene'));
+        this.createMenuButton(width / 2, btnY + spacing * 3, I18nManager.get('menu.settings'), 0x7f8c8d, () => this.scene.start('SettingsScene'));
 
-        // 사운드 초기화 유도 가이드 (UI 하단)
-        this.add.text(width / 2, height - 120, I18nManager.get('menu.credit'), {
-            fontFamily: 'Arial', fontSize: '20px', color: '#ffffff'
-        }).setOrigin(0.5).setAlpha(0.6);
 
-        // 5. 언어 선택 버튼 (화면 하단 국기)
-        this.createLanguageSelector(width / 2, height - 60);
+        // 5. 크레딧 및 언어 선택기 (하단 끝)
+        this.add.text(width / 2, height - 30, I18nManager.get('menu.credit'), {
+            fontSize: '18px', color: '#ffffff', alpha: 0.6
+        }).setOrigin(0.5);
+
+        this.createLanguageSelector(width / 2, height - 80);
 
         // 메뉴 음악 시작
         if (window.soundManager) {
             window.soundManager.startBGM('menu');
         }
+    }
+
+    /**
+     * 캐릭터 선택기 생성 (좌우 실루엣 프리뷰 포함)
+     */
+    createCharacterSelector(width, height) {
+        const centerY = 500; // 타이틀 아래, 버튼 위
+        const centerX = width / 2;
+        const offset = 180;
+        const previewScale = 4.0;
+
+        // 현재 인덱스 및 순환 함수
+        const currentIndex = this.gm.settings.playerIndex || 1;
+        const getIndex = (idx) => ((idx - 1 + 25) % 25) + 1;
+
+        const prevIndex = getIndex(currentIndex - 1);
+        const nextIndex = getIndex(currentIndex + 1);
+
+        // 1. 좌측 실루엣 (이전 캐릭터)
+        this.createSilhouette(centerX - offset, centerY, prevIndex, previewScale * 0.7, -1);
+
+        // 2. 우측 실루엣 (다음 캐릭터)
+        this.createSilhouette(centerX + offset, centerY, nextIndex, previewScale * 0.7, 1);
+
+        // 3. 중앙 캐릭터 (현재 선택)
+        const currentKey = `player${currentIndex.toString().padStart(2, '0')}`;
+        const mainPlayer = this.add.sprite(centerX, centerY, currentKey);
+        mainPlayer.setScale(previewScale);
+        mainPlayer.play(`${currentKey}_idle-front`);
+
+        this.tweens.add({
+            targets: mainPlayer,
+            y: centerY - 15,
+            duration: 1500,
+            yoyo: true,
+            loop: -1,
+            ease: 'Sine.easeInOut'
+        });
+    }
+
+    createSilhouette(x, y, index, scale, side) {
+        const key = `player${index.toString().padStart(2, '0')}`;
+        const silhouette = this.add.sprite(x, y, key).setInteractive();
+        silhouette.setScale(scale);
+        silhouette.setTint(0x000000);
+        silhouette.setAlpha(0.4);
+        silhouette.play(`${key}_idle-front`);
+
+        // 등장 애니메이션
+        silhouette.x += side * 50;
+        silhouette.alpha = 0;
+        this.tweens.add({
+            targets: silhouette,
+            x: x,
+            alpha: 0.4,
+            duration: 500,
+            ease: 'Back.easeOut'
+        });
+
+        // 클릭 시 캐릭터 변경
+        silhouette.on('pointerdown', () => {
+            if (window.soundManager) window.soundManager.playClimb();
+
+            this.tweens.add({
+                targets: silhouette,
+                x: this.cameras.main.width / 2,
+                y: y,
+                scale: scale / 0.7,
+                alpha: 1,
+                duration: 400,
+                ease: 'Cubic.easeInOut',
+                onStart: () => {
+                    silhouette.clearTint();
+                    silhouette.setDepth(10);
+                },
+                onComplete: () => {
+                    this.gm.updateSetting('playerIndex', index);
+                    this.scene.restart();
+                }
+            });
+        });
+
+        // 호버 효과
+        silhouette.on('pointerover', () => {
+            silhouette.setAlpha(0.8);
+            silhouette.setScale(scale * 1.1);
+        });
+        silhouette.on('pointerout', () => {
+            silhouette.setAlpha(0.4);
+            silhouette.setScale(scale);
+        });
     }
 
     /**

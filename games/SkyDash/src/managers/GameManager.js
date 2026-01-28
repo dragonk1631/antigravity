@@ -28,8 +28,8 @@ class GameManager {
             this.settings = JSON.parse(saved);
             // 새 설정 항목이 없으면 기본값 추가
             this.settings.musicMode = 'midi'; // 'midi' 전용으로 고정
-            if (!this.settings.language) {
-                this.settings.language = this.detectBrowserLanguage();
+            if (!this.settings.playerIndex) {
+                this.settings.playerIndex = 1; // 기본 플레이어 인덱스
             }
         } else {
             // 기본 설정
@@ -38,7 +38,8 @@ class GameManager {
                 stairColor: '#2ed573',
                 bgColor: '#1e3c72',
                 musicMode: 'midi', // MIDI 파일 재생 전용
-                language: this.detectBrowserLanguage()
+                language: this.detectBrowserLanguage(),
+                playerIndex: 1     // 기본 플레이어 인덱스 (player01)
             };
         }
     }

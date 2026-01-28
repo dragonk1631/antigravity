@@ -22,7 +22,12 @@ class Player extends Phaser.GameObjects.Container {
             this.aura = { setVisible: () => { }, clear: () => { } };
         }
 
-        this.sprite = scene.add.sprite(0, 0, 'player');
+        // 플레이어 인덱스 (기본값 player01)
+        this.playerIndex = scene.gm?.settings.playerIndex || 1;
+        const playerKey = `player${this.playerIndex.toString().padStart(2, '0')}`;
+        this.playerKey = playerKey;
+
+        this.sprite = scene.add.sprite(0, 0, playerKey);
         this.add(this.sprite);
 
         // 캐릭터 원본 크기는 1.0으로 유지하고, 사용하는 씬에서 컨테이너 배율로 조절합니다.
@@ -53,10 +58,10 @@ class Player extends Phaser.GameObjects.Container {
         // 스프라이트가 이미 방향별로 존재하므로 별도의 FlipX 처리는 필요하지 않거나 상황에 맞춰야 합니다.
         if (this.direction === 1) {
             this.sprite.setFlipX(false);
-            this.sprite.play('walk-right');
+            this.sprite.play(`${this.playerKey}_walk-right`);
         } else {
             this.sprite.setFlipX(false);
-            this.sprite.play('walk-left');
+            this.sprite.play(`${this.playerKey}_walk-left`);
         }
 
         // 초기 대기 상태에서는 천천히 움직이도록 설정
