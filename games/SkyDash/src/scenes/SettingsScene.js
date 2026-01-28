@@ -46,87 +46,9 @@ class SettingsScene extends Phaser.Scene {
         this.add.text(50, 490, 'Background Color', { fontSize: '22px', color: '#aaaaaa' });
         this.createColorGrid(50, 525, colors, 'bgColor');
 
-        // 4. 음악 모드 토글 (FM / MIDI)
-        this.add.text(50, 680, 'Music Mode', { fontSize: '22px', color: '#aaaaaa' });
-        this.createMusicModeToggle(50, 720);
-
         // 미리보기 캐릭터 및 계단
-        this.previewContainer = this.add.container(width / 2, 950);
+        this.previewContainer = this.add.container(width / 2, 750);
         this.createPreview();
-    }
-
-    /**
-     * 음악 모드 토글 버튼 생성 (FM 합성 / MIDI 파일)
-     */
-    createMusicModeToggle(x, y) {
-        const currentMode = this.gm.settings.musicMode || 'fm';
-
-        // FM 버튼
-        const fmBtn = this.add.rectangle(x, y, 140, 50, currentMode === 'fm' ? 0x3498db : 0x444444)
-            .setOrigin(0)
-            .setInteractive();
-        const fmLabel = this.add.text(x + 70, y + 25, '🎹 FM 합성', {
-            fontSize: '18px',
-            fontFamily: 'Arial',
-            color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // MIDI 버튼
-        const midiBtn = this.add.rectangle(x + 160, y, 140, 50, currentMode === 'midi' ? 0x3498db : 0x444444)
-            .setOrigin(0)
-            .setInteractive();
-        const midiLabel = this.add.text(x + 230, y + 25, '🎵 MIDI', {
-            fontSize: '18px',
-            fontFamily: 'Arial',
-            color: '#ffffff'
-        }).setOrigin(0.5);
-
-        // 상태 텍스트
-        const statusText = this.add.text(x + 320, y + 25,
-            currentMode === 'fm' ? '(절차적 합성)' : '(파일 재생)', {
-            fontSize: '14px',
-            color: '#888888'
-        }).setOrigin(0, 0.5);
-
-        // FM 버튼 클릭
-        fmBtn.on('pointerdown', () => {
-            this.gm.updateSetting('musicMode', 'fm');
-            fmBtn.setFillStyle(0x3498db);
-            midiBtn.setFillStyle(0x444444);
-            statusText.setText('(절차적 합성)');
-
-            // 음악 재시작 (새 모드로)
-            if (window.soundManager) {
-                window.soundManager.stopBGM();
-                window.soundManager.startBGM('menu');
-            }
-        });
-
-        // MIDI 버튼 클릭
-        midiBtn.on('pointerdown', () => {
-            this.gm.updateSetting('musicMode', 'midi');
-            fmBtn.setFillStyle(0x444444);
-            midiBtn.setFillStyle(0x3498db);
-            statusText.setText('(파일 재생)');
-
-            // 음악 재시작 (새 모드로)
-            if (window.soundManager) {
-                window.soundManager.stopBGM();
-                window.soundManager.startBGM('menu');
-            }
-        });
-
-        // 호버 효과
-        [fmBtn, midiBtn].forEach(btn => {
-            btn.on('pointerover', () => {
-                if (btn.fillColor !== 0x3498db) btn.setFillStyle(0x555555);
-            });
-            btn.on('pointerout', () => {
-                const mode = this.gm.settings.musicMode || 'fm';
-                if (btn === fmBtn && mode !== 'fm') btn.setFillStyle(0x444444);
-                if (btn === midiBtn && mode !== 'midi') btn.setFillStyle(0x444444);
-            });
-        });
     }
 
     createButton(x, y, text, callback) {

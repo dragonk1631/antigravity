@@ -486,17 +486,8 @@ class SoundManager extends Phaser.Events.EventEmitter {
         this.init();
         this.currentMode = mode;
 
-        // GameManager에서 설정 로드
-        const gm = new GameManager();
-        this.midiMode = gm.settings.musicMode || 'fm';
-
-        if (this.midiMode === 'midi') {
-            // MIDI 모드: MIDIjs 사용
-            this.startMidiBGM(mode);
-        } else {
-            // FM 합성 모드: 기존 로직
-            this.startFMBGM(mode);
-        }
+        this.midiMode = 'midi';
+        this.startMidiBGM(mode);
     }
 
     /**
