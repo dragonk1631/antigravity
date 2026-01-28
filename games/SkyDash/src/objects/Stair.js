@@ -16,10 +16,11 @@ class Stair extends Phaser.GameObjects.Container {
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
             this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
 
-            // 16x16 타일이 논리 영역 100x80을 정확히 덮도록 설정
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
-            this.stairImage.setOrigin(0.5, 0.5);
-            this.stairImage.y = height / 2;
+            // 픽셀 아트 잘림 방지 및 계단 간의 풍성한 연결을 위해 112x112(정수배) 설정
+            // 상단 80px은 밟는 구역, 하단 32px은 아래 계단과의 이음새를 덮는 여유분입니다.
+            this.stairImage.setDisplaySize(112, 112);
+            this.stairImage.setOrigin(0.5, 0);
+            this.stairImage.y = -16; // 약간 위로 배치하여 이음새를 더 자연스럽게 만듦
         } else {
             // 정적 텍스처 생성 (한 번만 - 성능 최적화) 폴백
             if (!scene.textures.exists('stair_texture')) {
@@ -114,9 +115,9 @@ class Stair extends Phaser.GameObjects.Container {
         // 타일 프레임 갱신
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
             this.stairImage.setTexture('tileset', tileFrame);
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
-            this.stairImage.setOrigin(0.5, 0.5);
-            this.stairImage.y = this.stepHeight / 2;
+            this.stairImage.setDisplaySize(112, 112);
+            this.stairImage.setOrigin(0.5, 0);
+            this.stairImage.y = -16;
 
             // 377번 계단 타일의 좌우 반전 처리
             // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
