@@ -22,14 +22,16 @@ class Player extends Phaser.GameObjects.Container {
             this.aura = { setVisible: () => { }, clear: () => { } };
         }
 
-        // 플레이어 인덱스 (기본값 player01, 현재 24종 에셋 존재)
+        // 플레이어 인텍스 및 키 설정 (동적 시트 지원)
         let pIdx = scene.gm?.settings.playerIndex || 1;
-        pIdx = Math.max(1, Math.min(24, pIdx)); // 안전하게 24번까지만 제한
+        pIdx = Math.max(1, Math.min(24, pIdx));
         this.playerIndex = pIdx;
-        const playerKey = `player${this.playerIndex.toString().padStart(2, '0')}`;
-        this.playerKey = playerKey;
 
-        this.sprite = scene.add.sprite(0, 0, playerKey);
+        const prefix = `player${this.playerIndex.toString().padStart(2, '0')}`;
+        this.textureKey = `${prefix}_sheet`; // 스프라이트용 텍스처 키
+        this.animPrefix = prefix;           // 애니메이션용 키 접두사
+
+        this.sprite = scene.add.sprite(0, 0, this.textureKey);
         this.add(this.sprite);
 
         // 캐릭터 원본 크기는 1.0으로 유지하고, 사용하는 씬에서 컨테이너 배율로 조절합니다.
@@ -60,10 +62,10 @@ class Player extends Phaser.GameObjects.Container {
         // 스프라이트가 이미 방향별로 존재하므로 별도의 FlipX 처리는 필요하지 않거나 상황에 맞춰야 합니다.
         if (this.direction === 1) {
             this.sprite.setFlipX(false);
-            this.sprite.play(`${this.playerKey}_walk-right`);
+            this.sprite.play(`${this.animPrefix}_walk-right`);
         } else {
             this.sprite.setFlipX(false);
-            this.sprite.play(`${this.playerKey}_walk-left`);
+            this.sprite.play(`${this.animPrefix}_walk-left`);
         }
 
         // 초기 대기 상태에서는 천천히 움직이도록 설정

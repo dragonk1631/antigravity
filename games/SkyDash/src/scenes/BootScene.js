@@ -15,19 +15,16 @@ class BootScene extends Phaser.Scene {
         // 에셋 로드 (플레이스홀더 및 리소스)
         // ------------------------------------
 
-        // 24종 플레이어 에셋 일괄 로드
+        // 24종 플레이어 에셋 일괄 로드 (이미지로 로드하여 실제 크기를 create에서 계산)
         for (let i = 1; i <= 24; i++) {
             const num = i.toString().padStart(2, '0');
-            this.load.spritesheet(`player${num}`, `assets/images/player/player${num}.png`, { frameWidth: 32, frameHeight: 48 });
+            this.load.image(`player${num}`, `assets/images/player/player${num}.png`);
         }
 
         // 사운드 매니저 초기화 (오디오 컨텍스트 등)
     }
 
     create() {
-        // 게임 데이터 매니저 초기화 (싱글톤)
-        // window.gameManager = new GameManager(); 
-
         // SoundManager 및 MidiPlayer 초기화
         window.soundManager = new SoundManager(this.sound);
 
@@ -36,28 +33,43 @@ class BootScene extends Phaser.Scene {
             window.midiPlayer.init();
         }
 
-        // 24종 플레이어별 애니메이션 자동 생성
+        // 24종 플레이어별 동적 Spritesheet 생성 및 애니메이션 생성
         for (let i = 1; i <= 24; i++) {
             const num = i.toString().padStart(2, '0');
             const key = `player${num}`;
 
+            // 1. 로드된 이미지의 실제 크기를 가져와서 4x4 격자로 나눔
+            const texture = this.textures.get(key);
+            const image = texture.getSourceImage();
+            const frameWidth = Math.floor(image.width / 4);
+            const frameHeight = Math.floor(image.height / 4);
+
+            // 2. 기존 이미지를 spritesheet로 재구성
+            this.textures.addSpriteSheet(`${key}_sheet`, image, {
+                frameWidth: frameWidth,
+                frameHeight: frameHeight
+            });
+
+            // 3. 애니메이션 생성 (시트 키 사용)
+            const sheetKey = `${key}_sheet`;
+
             this.anims.create({
                 key: `${key}_idle-front`,
-                frames: this.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
+                frames: this.anims.generateFrameNumbers(sheetKey, { start: 0, end: 3 }),
                 frameRate: 8,
                 repeat: -1
             });
 
             this.anims.create({
                 key: `${key}_walk-left`,
-                frames: this.anims.generateFrameNumbers(key, { start: 4, end: 7 }),
+                frames: this.anims.generateFrameNumbers(sheetKey, { start: 4, end: 7 }),
                 frameRate: 24,
                 repeat: -1
             });
 
             this.anims.create({
                 key: `${key}_walk-right`,
-                frames: this.anims.generateFrameNumbers(key, { start: 8, end: 11 }),
+                frames: this.anims.generateFrameNumbers(sheetKey, { start: 8, end: 11 }),
                 frameRate: 24,
                 repeat: -1
             });

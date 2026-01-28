@@ -95,11 +95,13 @@ class MainMenuScene extends Phaser.Scene {
         // 2. 우측 실루엣 (다음 캐릭터)
         this.createSilhouette(centerX + offset, centerY, nextIndex, previewScale * 0.7, 1);
 
-        // 3. 중앙 캐릭터 (현재 선택)
-        const currentKey = `player${currentIndex.toString().padStart(2, '0')}`;
+        // 3. 중앙 캐릭터 (현재 선택 - 동적 시트 사용)
+        const currentKey = `player${currentIndex.toString().padStart(2, '0')}_sheet`;
         const mainPlayer = this.add.sprite(centerX, centerY, currentKey);
         mainPlayer.setScale(previewScale);
-        mainPlayer.play(`${currentKey}_idle-front`);
+        // 애니메이션 키는 그대로 유지 (BootScene에서 생성할 때 playerXX_idle-front 형식 사용)
+        const animPrefix = `player${currentIndex.toString().padStart(2, '0')}`;
+        mainPlayer.play(`${animPrefix}_idle-front`);
 
         this.tweens.add({
             targets: mainPlayer,
@@ -112,12 +114,13 @@ class MainMenuScene extends Phaser.Scene {
     }
 
     createSilhouette(x, y, index, scale, side) {
-        const key = `player${index.toString().padStart(2, '0')}`;
+        const animPrefix = `player${index.toString().padStart(2, '0')}`;
+        const key = `${animPrefix}_sheet`;
         const silhouette = this.add.sprite(x, y, key).setInteractive();
         silhouette.setScale(scale);
         silhouette.setTint(0x000000);
         silhouette.setAlpha(0.4);
-        silhouette.play(`${key}_idle-front`);
+        silhouette.play(`${animPrefix}_idle-front`);
 
         // 등장 애니메이션
         silhouette.x += side * 50;
