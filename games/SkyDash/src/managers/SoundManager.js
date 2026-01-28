@@ -15,11 +15,12 @@ class SoundManager extends Phaser.Events.EventEmitter {
         // MIDI 재생 관련
         this.midiMode = 'fm'; // 'fm' or 'midi' (GameManager에서 로드)
         this.currentMidiAudio = null; // MIDI 재생용 Audio 엘리먼트
+        this.midiVersion = '0500'; // MIDI 파일 캐시 버스팅 버전
         this.midiPaths = {
-            game: 'assets/audio/midi/stage01.mid',      // 무한 모드
-            timeattack: 'assets/audio/midi/stage02.mid', // 타임어택 모드
-            menu: 'assets/audio/midi/stage03.mid',       // 메인 메뉴
-            gameOver: 'assets/audio/midi/stage03.mid'    // 게임오버 (메뉴와 동일)
+            game: `assets/audio/midi/stage01.mid?v=${this.midiVersion}`,      // 무한 모드
+            timeattack: `assets/audio/midi/stage02.mid?v=${this.midiVersion}`, // 타임어택 모드
+            menu: `assets/audio/midi/stage03.mid?v=${this.midiVersion}`,       // 메인 메뉴
+            gameOver: `assets/audio/midi/stage03.mid?v=${this.midiVersion}`    // 게임오버 (메뉴와 동일)
         };
 
         // 시퀀싱 제어 변수 (FM 모드용)
@@ -479,7 +480,8 @@ class SoundManager extends Phaser.Events.EventEmitter {
      * BGM 시작 (FM 합성 또는 MIDI 파일)
      */
     startBGM(mode = 'menu') {
-        if (this.currentMode === mode && (this.timerID || this.currentMidiAudio)) return;
+        const isMidiPlaying = window.midiPlayer && (window.midiPlayer.isPlaying || window.midiPlayer.isStarting);
+        if (this.currentMode === mode && (this.timerID || this.currentMidiAudio || isMidiPlaying)) return;
         this.stopBGM();
         this.init();
         this.currentMode = mode;
@@ -506,9 +508,12 @@ class SoundManager extends Phaser.Events.EventEmitter {
         // MidiPlayer가 로드되어 있는지 확인
         if (window.midiPlayer) {
             try {
+                if (window.midiPlayer.isLoading) {
+                    console.log('[SoundManager] MIDI 엔진이 아직 로딩 중입니다. 잠시 대기...');
+                }
                 const success = await window.midiPlayer.play(midiPath, true);
                 if (!success) {
-                    console.warn('[SoundManager] MIDI 재생 실패. FM 모드로 폴백합니다.');
+                    console.warn('[SoundManager] MIDI 재생 실패 (엔진 준비 안됨). FM 모드로 폴백합니다.');
                     this.startFMBGM(mode);
                 }
             } catch (e) {
