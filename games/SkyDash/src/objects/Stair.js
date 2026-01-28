@@ -16,11 +16,12 @@ class Stair extends Phaser.GameObjects.Container {
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
             this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
 
-            // 타일이 잘려 보이지 않도록 논리 영역인 100x80보다 살짝 크게(여유분 2px) 설정
-            // 계단은 위아래로 100x80 구역을 꽉 채워야 이음새가 깔끔해집니다.
-            this.stairImage.setDisplaySize(this.stepWidth + 2, this.stepHeight + 2);
+            // 픽셀 아트 잘림 방지를 위해 중앙 원점으로 설정하고 컨테이너 중앙에 배치
+            this.stairImage.setOrigin(0.5, 0.5);
+            this.stairImage.y = this.stepHeight / 2;
 
-            // 377번 계단 타일 주변 로직 (reuse에서 flip 처리됨)
+            // 논리 영역을 가득 채우면서도 비율을 유지하려면 정사각형으로 크게 설정하는 것이 안전할 수 있음
+            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
         } else {
             // 정적 텍스처 생성 (한 번만 - 성능 최적화) 폴백
             if (!scene.textures.exists('stair_texture')) {
@@ -42,9 +43,9 @@ class Stair extends Phaser.GameObjects.Container {
                 g.destroy();
             }
             this.stairImage = scene.add.image(0, 0, 'stair_texture');
+            this.stairImage.setOrigin(0.5, 0);
         }
 
-        this.stairImage.setOrigin(0.5, 0);
         this.add(this.stairImage);
     }
 
@@ -115,8 +116,9 @@ class Stair extends Phaser.GameObjects.Container {
         // 타일 프레임 갱신
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
             this.stairImage.setTexture('tileset', tileFrame);
-            // 이음새 잘림 방지를 위해 2px 정도 오버랩
-            this.stairImage.setDisplaySize(this.stepWidth + 2, this.stepHeight + 2);
+            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
+            this.stairImage.setOrigin(0.5, 0.5);
+            this.stairImage.y = this.stepHeight / 2;
 
             // 377번 계단 타일의 좌우 반전 처리
             // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
@@ -127,6 +129,8 @@ class Stair extends Phaser.GameObjects.Container {
             }
         } else if (!this.tileFrame) {
             this.stairImage.setTexture('stair_texture');
+            this.stairImage.setOrigin(0.5, 0);
+            this.stairImage.y = 0;
             this.stairImage.setFlipX(false);
         }
     }
