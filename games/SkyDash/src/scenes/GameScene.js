@@ -481,8 +481,8 @@ class GameScene extends Phaser.Scene {
 
         this.stairsData.push({ x: nextX, y: nextY });
 
-        const screenX = this.cameras.main.centerX + (nextX * this.STEP_WIDTH);
-        const screenY = (this.cameras.main.height * 0.3) - (nextY * this.STEP_HEIGHT);
+        const screenX = Math.floor(this.cameras.main.centerX + (nextX * this.STEP_WIDTH));
+        const screenY = Math.floor((this.cameras.main.height * 0.3) - (nextY * this.STEP_HEIGHT));
 
         let stairObj;
         const currentFrame = this.currentTheme.frame;

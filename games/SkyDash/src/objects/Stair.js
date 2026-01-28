@@ -12,15 +12,23 @@ class Stair extends Phaser.GameObjects.Container {
         this.stepHeight = height;
         this.tileFrame = tileFrame;
 
-        // 1. 타일셋 이미지가 지정된 경우 해당 타일 사용, 없으면 Graphics 텍스처 사용
+        // 1. 타일셋 이미지가 지정된 경우 다중 타일 조립 (잘림 방지 및 풍성한 연결)
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
-            this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
+            this.stairImages = [];
+            // 3개의 타일을 조밀하게 배치하여 100x80 영역을 채우고 대각선 흐름을 자연스럽게 만듦
+            const offsets = [
+                { x: -25, y: 20, scale: 5 },
+                { x: 0, y: 0, scale: 5.5 },
+                { x: 25, y: -20, scale: 5 }
+            ];
 
-            // 픽셀 아트 잘림 방지 및 계단 간의 자연스러운 연결을 위해 112x80(정수배: 16x7, 16x5) 설정
-            // 가로 100px보다 큰 112px을 사용하여 좌우 연결 부위를 덮습니다.
-            this.stairImage.setDisplaySize(112, 80);
-            this.stairImage.setOrigin(0.5, 0);
-            this.stairImage.y = 0;
+            offsets.forEach(off => {
+                const img = scene.add.sprite(off.x, off.y + this.stepHeight / 2, 'tileset', this.tileFrame);
+                img.setDisplaySize(16 * off.scale, 16 * off.scale);
+                img.setOrigin(0.5, 0.5);
+                this.add(img);
+                this.stairImages.push(img);
+            });
         } else {
             // 정적 텍스처 생성 (한 번만 - 성능 최적화) 폴백
             if (!scene.textures.exists('stair_texture')) {
@@ -60,7 +68,12 @@ class Stair extends Phaser.GameObjects.Container {
         this.isShattered = true;
 
         // 이미지 숨기기
-        this.stairImage.setVisible(false);
+        if (this.stairImages) {
+            this.stairImages.forEach(img => img.setVisible(false));
+        }
+        if (this.stairImage) {
+            this.stairImage.setVisible(false);
+        }
 
         const w = 90;
         const h = 35;
@@ -109,25 +122,30 @@ class Stair extends Phaser.GameObjects.Container {
         this.setPosition(x, y);
         this.setActive(true);
         this.setVisible(true);
-        this.stairImage.setVisible(true);
+        if (this.stairImages) {
+            this.stairImages.forEach(img => img.setVisible(true));
+        }
+        if (this.stairImage) {
+            this.stairImage.setVisible(true);
+        }
         this.hideFlag();
 
         // 타일 프레임 갱신
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
-            this.stairImage.setTexture('tileset', tileFrame);
-            // 112x80 규격 유지
-            this.stairImage.setDisplaySize(112, 80);
-            this.stairImage.setOrigin(0.5, 0);
-            this.stairImage.y = 0;
+            if (this.stairImages) {
+                // 377번 계단 타일의 배치 및 좌우 반전 처리
+                const flipX = (direction === -1);
+                this.stairImages.forEach((img, idx) => {
+                    img.setTexture('tileset', tileFrame);
+                    img.setFlipX(flipX);
 
-            // 377번 계단 타일의 좌우 반전 처리
-            // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
-            if (tileFrame === 377) {
-                this.stairImage.setFlipX(direction === -1);
-            } else {
-                this.stairImage.setFlipX(false);
+                    // 방향에 따라 개별 타일의 상대 X 좌표도 반전
+                    // 기본 offset: [-25, 0, 25]
+                    const baseXs = [-25, 0, 25];
+                    img.x = baseXs[idx] * (flipX ? -1 : 1);
+                });
             }
-        } else if (!this.tileFrame) {
+        } else if (this.stairImage) {
             this.stairImage.setTexture('stair_texture');
             this.stairImage.setOrigin(0.5, 0);
             this.stairImage.y = 0;
