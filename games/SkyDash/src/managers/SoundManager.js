@@ -15,12 +15,15 @@ class SoundManager extends Phaser.Events.EventEmitter {
         // MIDI 재생 관련
         this.midiMode = 'fm'; // 'fm' or 'midi' (GameManager에서 로드)
         this.currentMidiAudio = null; // MIDI 재생용 Audio 엘리먼트
-        this.midiVersion = '0500'; // MIDI 파일 캐시 버스팅 버전
+        this.midiVersion = '0510'; // MIDI 파일 캐시 버스팅 버전
         this.midiPaths = {
-            game: `assets/audio/midi/stage01.mid?v=${this.midiVersion}`,      // 무한 모드
+            game: `assets/audio/midi/stage01.mid?v=${this.midiVersion}`,       // 무한 모드
             timeattack: `assets/audio/midi/stage02.mid?v=${this.midiVersion}`, // 타임어택 모드
-            menu: `assets/audio/midi/stage03.mid?v=${this.midiVersion}`,       // 메인 메뉴
-            gameOver: `assets/audio/midi/stage03.mid?v=${this.midiVersion}`    // 게임오버 (메뉴와 동일)
+            menu: `assets/audio/midi/mainmenu.mid?v=${this.midiVersion}`,      // 메인 메뉴
+            gameOver: `assets/audio/midi/gameover.mid?v=${this.midiVersion}`,  // 게임오버
+            leaderboard: `assets/audio/midi/leaderboard.mid?v=${this.midiVersion}`, // 리더보드
+            setting: `assets/audio/midi/setting.mid?v=${this.midiVersion}`,    // 설정
+            victory: `assets/audio/midi/victory.mid?v=${this.midiVersion}`     // 승리
         };
 
         // 시퀀싱 제어 변수 (FM 모드용)

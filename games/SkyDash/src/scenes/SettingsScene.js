@@ -16,6 +16,11 @@ class SettingsScene extends Phaser.Scene {
         // 배경
         this.add.rectangle(0, 0, width, height, 0x1a1a1a).setOrigin(0);
 
+        // 설정 음악 시작
+        if (window.soundManager) {
+            window.soundManager.startBGM('setting');
+        }
+
         // 타이틀
         this.add.text(width / 2, 60, 'SETTINGS', {
             fontFamily: 'Arial',

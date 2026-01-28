@@ -24,9 +24,10 @@ class GameOverScene extends Phaser.Scene {
 
         this.add.rectangle(0, 0, width, height, 0x000000, 0.85).setOrigin(0);
 
-        // 게임 오버 음악 시작
+        // 결과에 따른 음악 시작 (승리 vs 패배)
         if (window.soundManager) {
-            window.soundManager.startBGM('gameOver');
+            const bgmKey = this.cleared ? 'victory' : 'gameOver';
+            window.soundManager.startBGM(bgmKey);
         }
 
         // 결과 배너

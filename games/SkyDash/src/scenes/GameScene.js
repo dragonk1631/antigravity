@@ -677,7 +677,11 @@ class GameScene extends Phaser.Scene {
         this.endTime = Date.now();
         const duration = this.startTime ? (this.endTime - this.startTime) / 1000 : 0;
 
-        if (window.soundManager) window.soundManager.playClear();
+        if (window.soundManager) {
+            window.soundManager.stopBGM();
+            window.soundManager.startBGM('victory');
+            window.soundManager.playClear();
+        }
 
         // 결과 저장
         this.gm.saveScore(this.mode, this.score, duration, this.maxCombo);

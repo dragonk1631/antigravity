@@ -15,6 +15,11 @@ class LeaderboardScene extends Phaser.Scene {
         // 배경
         this.add.rectangle(0, 0, width, height, 0x111111).setOrigin(0);
 
+        // 리더보드 음악 시작
+        if (window.soundManager) {
+            window.soundManager.startBGM('leaderboard');
+        }
+
         // 타이틀
         this.add.text(width / 2, 60, 'LEADERBOARD', {
             fontFamily: 'Arial',
