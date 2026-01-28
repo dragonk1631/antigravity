@@ -15,9 +15,10 @@ class Stair extends Phaser.GameObjects.Container {
         // 1. 타일셋 이미지가 지정된 경우 해당 타일 사용, 없으면 Graphics 텍스처 사용
         if (this.tileFrame !== null && scene.textures.exists('tileset')) {
             this.stairImage = scene.add.sprite(0, 0, 'tileset', this.tileFrame);
-            // 타일 규격(16x16)을 게임의 계단 논리 크기(100x80)에 가득 차도록 스케일 조정
-            // 90x45 대신 100x80을 사용하여 계단 간 빈틈과 잘림 현상을 해결합니다.
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
+
+            // 타일이 잘려 보이지 않도록 논리 영역인 100x80보다 살짝 크게(여유분 2px) 설정
+            // 계단은 위아래로 100x80 구역을 꽉 채워야 이음새가 깔끔해집니다.
+            this.stairImage.setDisplaySize(this.stepWidth + 2, this.stepHeight + 2);
 
             // 377번 계단 타일 주변 로직 (reuse에서 flip 처리됨)
         } else {
@@ -114,7 +115,8 @@ class Stair extends Phaser.GameObjects.Container {
         // 타일 프레임 갱신
         if (tileFrame !== null && this.scene.textures.exists('tileset')) {
             this.stairImage.setTexture('tileset', tileFrame);
-            this.stairImage.setDisplaySize(this.stepWidth, this.stepHeight);
+            // 이음새 잘림 방지를 위해 2px 정도 오버랩
+            this.stairImage.setDisplaySize(this.stepWidth + 2, this.stepHeight + 2);
 
             // 377번 계단 타일의 좌우 반전 처리
             // direction 1(오른쪽)일 때와 -1(왼쪽)일 때 계단 모양을 맞춤
