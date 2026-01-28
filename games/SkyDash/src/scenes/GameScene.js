@@ -68,6 +68,18 @@ class GameScene extends Phaser.Scene {
         this.targetBgColor = 0x34495e;
         this.currentBgColor = new Phaser.Display.Color(52, 73, 94);
 
+        // --- 테마 인덱스 설정 (legacy_atlas용) ---
+        this.THEMES = {
+            GRASS: { name: 'Grass', frame: 450, sky: 0x87ceeb },  // 초원
+            SNOW: { name: 'Snow', frame: 461, sky: 0xe0ffff },  // 설원
+            CASTLE: { name: 'Castle', frame: 10, sky: 0x2c3e50 },  // 성 내부
+            DESERT: { name: 'Desert', frame: 512, sky: 0xf4a460 }  // 사막
+        };
+        const themeKeys = Object.keys(this.THEMES);
+        this.currentTheme = this.THEMES[themeKeys[Math.floor(Math.random() * themeKeys.length)]];
+        this.bgColor = this.currentTheme.sky;
+        this.targetBgColor = this.currentTheme.sky;
+
         this.backgroundRect = this.add.rectangle(0, 0, 720, 1280, this.bgColor).setOrigin(0).setScrollFactor(0);
 
         // 상단에 어두운 그라데이션 오버레이로 깊이감 추가
@@ -430,11 +442,10 @@ class GameScene extends Phaser.Scene {
         const startX = this.cameras.main.centerX;
         const startY = this.cameras.main.height * 0.3;
 
-        // 오브젝트 풀 미리 생성: 게임 중에는 새로 생성하지 않고 재활용만 함
-        // 화면에 보이는 계단 + 여유분 = 약 30개면 충분
+        // 오브젝트 풀 미리 생성
         const POOL_SIZE = 30;
         for (let i = 0; i < POOL_SIZE; i++) {
-            const stair = new Stair(this, -1000, -1000, this.STEP_WIDTH, this.STEP_HEIGHT);
+            const stair = new Stair(this, -1000, -1000, this.STEP_WIDTH, this.STEP_HEIGHT, this.currentTheme.frame);
             stair.setActive(false);
             stair.setVisible(false);
             this.stairPool.push(stair);
@@ -443,7 +454,7 @@ class GameScene extends Phaser.Scene {
 
         // 첫 계단 (풀에서 가져옴)
         const firstStair = this.stairPool.pop();
-        firstStair.reuse(startX, startY);
+        firstStair.reuse(startX, startY, this.currentTheme.frame);
         firstStair.gridX = 0;
         firstStair.gridY = 0;
 
@@ -474,13 +485,15 @@ class GameScene extends Phaser.Scene {
         const screenY = (this.cameras.main.height * 0.3) - (nextY * this.STEP_HEIGHT);
 
         let stairObj;
+        const currentFrame = this.currentTheme.frame;
+
         if (this.stairPool.length > 0) {
             // 풀에 놀고 있는 계단이 있으면 재사용
             stairObj = this.stairPool.pop();
-            stairObj.reuse(screenX, screenY);
+            stairObj.reuse(screenX, screenY, currentFrame);
         } else {
             // 없으면 새로 생성
-            stairObj = new Stair(this, screenX, screenY, this.STEP_WIDTH, this.STEP_HEIGHT);
+            stairObj = new Stair(this, screenX, screenY, this.STEP_WIDTH, this.STEP_HEIGHT, currentFrame);
             this.stairGroup.add(stairObj);
         }
 
