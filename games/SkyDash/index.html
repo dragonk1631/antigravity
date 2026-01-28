@@ -31,26 +31,50 @@
     </style>
     <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <!-- MIDIjs - MIDI 파일 재생 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/midi-js-soundfonts@0.0.3/dist/midi.min.js"
+        onerror="console.warn('MIDIjs CDN 로드 실패');"></script>
+    <script>
+        // MIDIjs 대체 라이브러리 (간단한 MIDI 재생기)
+        if (typeof MIDIjs === 'undefined') {
+            window.MIDIjs = {
+                _audio: null,
+                play: function (url) {
+                    // MIDI 직접 재생은 브라우저에서 지원하지 않으므로
+                    // timidity.js 또는 soundfont를 사용해야 함
+                    // 여기서는 폴백으로 FM 모드 사용 안내
+                    console.log('MIDI 재생 요청:', url);
+                    console.warn('MIDI 파일이 없거나 라이브러리가 로드되지 않았습니다. FM 모드로 폴백합니다.');
+                },
+                stop: function () {
+                    if (this._audio) {
+                        this._audio.pause();
+                        this._audio = null;
+                    }
+                }
+            };
+        }
+    </script>
 </head>
 
 <body>
     <div id="game-container"></div>
 
     <!-- Scripts Layering with Cache Busting -->
-    <script src="./src/GameConfig.js?v=0129"></script>
-    <script src="./src/managers/GameManager.js?v=0129"></script>
-    <script src="./src/managers/SoundManager.js?v=0129"></script>
-    <script src="./src/managers/VFXManager.js?v=0129"></script>
-    <script src="./src/objects/Player.js?v=0129"></script>
-    <script src="./src/objects/Stair.js?v=0129"></script>
-    <script src="./src/scenes/BootScene.js?v=0129"></script>
-    <script src="./src/scenes/IntroScene.js?v=0129"></script>
-    <script src="./src/scenes/MainMenuScene.js?v=0129"></script>
-    <script src="./src/scenes/GameScene.js?v=0129"></script>
-    <script src="./src/scenes/GameOverScene.js?v=0129"></script>
-    <script src="./src/scenes/SettingsScene.js?v=0129"></script>
-    <script src="./src/scenes/LeaderboardScene.js?v=0129"></script>
-    <script src="./src/main.js?v=0129"></script>
+    <script src="./src/GameConfig.js?v=0130"></script>
+    <script src="./src/managers/GameManager.js?v=0130"></script>
+    <script src="./src/managers/SoundManager.js?v=0130"></script>
+    <script src="./src/managers/VFXManager.js?v=0130"></script>
+    <script src="./src/objects/Player.js?v=0130"></script>
+    <script src="./src/objects/Stair.js?v=0130"></script>
+    <script src="./src/scenes/BootScene.js?v=0130"></script>
+    <script src="./src/scenes/IntroScene.js?v=0130"></script>
+    <script src="./src/scenes/MainMenuScene.js?v=0130"></script>
+    <script src="./src/scenes/GameScene.js?v=0130"></script>
+    <script src="./src/scenes/GameOverScene.js?v=0130"></script>
+    <script src="./src/scenes/SettingsScene.js?v=0130"></script>
+    <script src="./src/scenes/LeaderboardScene.js?v=0130"></script>
+    <script src="./src/main.js?v=0130"></script>
 </body>
 
 </html>

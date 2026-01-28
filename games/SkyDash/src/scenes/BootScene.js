@@ -15,7 +15,7 @@ class BootScene extends Phaser.Scene {
         // 에셋 로드 (플레이스홀더 및 리소스)
         // ------------------------------------
 
-        this.load.spritesheet('player', 'assets/player.png', { frameWidth: 32, frameHeight: 48 });
+        this.load.spritesheet('player', 'assets/images/player.png', { frameWidth: 32, frameHeight: 48 });
 
         // 사운드 매니저 초기화 (오디오 컨텍스트 등)
     }

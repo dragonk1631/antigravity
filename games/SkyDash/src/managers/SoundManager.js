@@ -1,6 +1,7 @@
 /**
  * SoundManager
  * 정밀 스케줄링 및 대기 환경 필터를 지원하는 고급 절차적 오디오 엔진
+ * FM 합성 모드와 MIDI 파일 재생 모드를 지원합니다.
  */
 class SoundManager extends Phaser.Events.EventEmitter {
     constructor(soundSystem) {
@@ -11,7 +12,17 @@ class SoundManager extends Phaser.Events.EventEmitter {
         this.initialized = false;
         this.currentMode = null; // 'menu', 'game', 'gameOver'
 
-        // 시퀀싱 제어 변수
+        // MIDI 재생 관련
+        this.midiMode = 'fm'; // 'fm' or 'midi' (GameManager에서 로드)
+        this.currentMidiAudio = null; // MIDI 재생용 Audio 엘리먼트
+        this.midiPaths = {
+            game: 'assets/audio/midi/stage01.mid',      // 무한 모드
+            timeattack: 'assets/audio/midi/stage02.mid', // 타임어택 모드
+            menu: 'assets/audio/midi/stage03.mid',       // 메인 메뉴
+            gameOver: 'assets/audio/midi/stage03.mid'    // 게임오버 (메뉴와 동일)
+        };
+
+        // 시퀀싱 제어 변수 (FM 모드용)
         this.nextNoteTime = 0.0;
         this.step = 0;
         this.timerID = null;
@@ -457,14 +468,54 @@ class SoundManager extends Phaser.Events.EventEmitter {
     }
 
     /**
-     * BGM 시작 (정밀 스케줄링)
+     * 음악 모드 설정 (GameManager에서 호출)
+     * @param {string} mode 'fm' or 'midi'
+     */
+    setMusicMode(mode) {
+        this.midiMode = mode;
+    }
+
+    /**
+     * BGM 시작 (FM 합성 또는 MIDI 파일)
      */
     startBGM(mode = 'menu') {
-        if (this.currentMode === mode && this.timerID) return;
+        if (this.currentMode === mode && (this.timerID || this.currentMidiAudio)) return;
         this.stopBGM();
         this.init();
         this.currentMode = mode;
 
+        // GameManager에서 설정 로드
+        const gm = new GameManager();
+        this.midiMode = gm.settings.musicMode || 'fm';
+
+        if (this.midiMode === 'midi') {
+            // MIDI 모드: MIDIjs 사용
+            this.startMidiBGM(mode);
+        } else {
+            // FM 합성 모드: 기존 로직
+            this.startFMBGM(mode);
+        }
+    }
+
+    /**
+     * MIDI 파일 BGM 재생 (MIDIjs 사용)
+     */
+    startMidiBGM(mode) {
+        const midiPath = this.midiPaths[mode] || this.midiPaths.menu;
+
+        // MIDIjs 라이브러리가 로드되어 있는지 확인
+        if (typeof MIDIjs !== 'undefined') {
+            MIDIjs.play(midiPath);
+        } else {
+            console.warn('MIDIjs 라이브러리가 로드되지 않았습니다. FM 모드로 폴백합니다.');
+            this.startFMBGM(mode);
+        }
+    }
+
+    /**
+     * FM 합성 BGM 시작 (기존 로직)
+     */
+    startFMBGM(mode) {
         // 템포 설정: 타임어택 140, 게임 130, 메뉴 110
         if (mode === 'timeattack') {
             this.tempo = 140;
@@ -649,10 +700,16 @@ class SoundManager extends Phaser.Events.EventEmitter {
     }
 
     stopBGM() {
+        // FM 모드 정지
         if (this.timerID) {
             clearTimeout(this.timerID);
             this.timerID = null;
         }
+        // MIDI 모드 정지
+        if (typeof MIDIjs !== 'undefined') {
+            MIDIjs.stop();
+        }
+        this.currentMode = null;
     }
 
     playClimb(pitch = 1.0) {

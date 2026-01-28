@@ -26,12 +26,17 @@ class GameManager {
         const saved = localStorage.getItem('skydash_settings');
         if (saved) {
             this.settings = JSON.parse(saved);
+            // 새 설정 항목이 없으면 기본값 추가
+            if (!this.settings.musicMode) {
+                this.settings.musicMode = 'fm'; // 'fm' or 'midi'
+            }
         } else {
             // 기본 설정
             this.settings = {
                 characterColor: '#f39c12',
                 stairColor: '#2ed573',
-                bgColor: '#1e3c72'
+                bgColor: '#1e3c72',
+                musicMode: 'fm' // 'fm' (FM 합성) or 'midi' (MIDI 파일)
             };
         }
     }
