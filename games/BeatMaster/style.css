@@ -783,6 +783,8 @@ canvas {
     line-height: 1;
     background: linear-gradient(135deg, #fff, #888);
     -webkit-background-clip: text;
+    background-clip: text;
+    /* Added for compatibility */
     -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
 }

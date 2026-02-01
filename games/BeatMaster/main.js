@@ -36,7 +36,8 @@ class GameEngine {
             isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
             lastUIUpdate: { score: -1, combo: -1, time: "", hp: -1 },
             hp: 100,
-            stats: { perfect: 0, good: 0, miss: 0, maxCombo: 0 }
+            stats: { perfect: 0, good: 0, miss: 0, maxCombo: 0 },
+            lanePointerMap: {}
         };
 
         this.cache = {
