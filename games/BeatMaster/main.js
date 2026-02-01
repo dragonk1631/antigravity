@@ -467,7 +467,10 @@ class GameEngine {
 
         for (const msg of counts) {
             el.innerText = msg;
-            // [Feature] Zoom-in animation for countdown
+
+            // [Fix] Force Reflow to restart CSS Animation
+            el.className = 'countdown-text visible';
+            void el.offsetWidth; // Trigger reflow
             el.className = 'countdown-text anim-popup visible zoom-in';
 
             await new Promise(r => setTimeout(r, 1000));
