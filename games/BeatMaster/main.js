@@ -56,6 +56,8 @@ class GameEngine {
             timeDisplay: document.getElementById('time-display'),
             diffBtns: document.querySelectorAll('.difficulty-btn'),
             debugConsole: document.getElementById('debug-console'),
+            touchZones: document.querySelectorAll('.touch-zone'),
+            fullscreenBtn: document.getElementById('fullscreen-btn')
         };
 
         if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
@@ -107,6 +109,7 @@ class GameEngine {
     bindEvents() {
         this.elements.startBtn.addEventListener('click', () => this.startSession());
         this.elements.pauseBtn.addEventListener('click', () => this.togglePause());
+        this.elements.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
 
         this.elements.scrollSpeedInput.addEventListener('input', (e) => {
             CONFIG.NOTES.SCROLL_SPEED = parseFloat(e.target.value);
@@ -148,10 +151,78 @@ class GameEngine {
         });
 
         window.addEventListener('keydown', (e) => {
-            if (e.repeat) return; // 브라우저 자동 반복 차단 (사용자 요청 사항)
+            if (e.repeat) return;
             this.handleKeyDown(e);
         });
         window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+
+        // 터치 존 이벤트 바인딩 (Pointer Events for Multi-touch)
+        this.elements.touchZones.forEach(zone => {
+            const lane = parseInt(zone.getAttribute('data-lane'));
+
+            zone.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                zone.releasePointerCapture(e.pointerId); // 멀티터치 간섭 방지
+                this.triggerLaneDown(lane);
+                zone.classList.add('active');
+            });
+
+            zone.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                this.triggerLaneUp(lane);
+                zone.classList.remove('active');
+            });
+
+            zone.addEventListener('pointerleave', (e) => {
+                e.preventDefault();
+                this.triggerLaneUp(lane);
+                zone.classList.remove('active');
+            });
+
+            zone.addEventListener('pointercancel', (e) => {
+                e.preventDefault();
+                this.triggerLaneUp(lane);
+                zone.classList.remove('active');
+            });
+        });
+    }
+
+    triggerLaneDown(lane) {
+        if (!this.state.isPlaying) return;
+        this.state.keyPressed[lane] = true;
+        this.state.laneActive[lane] = 200;
+        // [요청 반영] 드럼 소리 제거
+        // this.player.playNote(lane); 
+        this.checkHit(lane);
+    }
+
+    triggerLaneUp(lane) {
+        if (!this.state.isPlaying) return;
+        this.state.keyPressed[lane] = false;
+
+        const activeLN = this.state.activeLongNotes[lane];
+        if (activeLN) {
+            const now = this.state.currentTime;
+            const endTime = activeLN.time + activeLN.duration;
+            const diff = Math.abs(now - endTime);
+            const releaseWindow = (CONFIG.NOTES.JUDGMENT.RELEASE_WINDOW || 0.250) * 1000;
+
+            if (activeLN.completed) return;
+
+            if (diff <= releaseWindow) {
+                const judgment = this.getJudgment(diff / 1000 / 1.5);
+                this.applyJudgment(`Release ${judgment}`);
+            } else {
+                this.applyJudgment("MISS");
+            }
+
+            if (this.player && activeLN.originalPitch !== undefined) {
+                this.player.triggerNoteOff(activeLN.originalChannel, activeLN.originalPitch);
+            }
+            activeLN.completed = true; // Mark as completed
+            this.syncCheckIndex();
+            delete this.state.activeLongNotes[lane]; // Use delete for clarity
+        }
     }
 
     handleKeyDown(e) {
@@ -159,11 +230,8 @@ class GameEngine {
         const key = e.key.toLowerCase();
         const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
         if (lane !== -1) {
-            this.state.keyPressed[lane] = true;
-            this.state.laneActive[lane] = 200;
-            // [요청 반영] 드럼 소리 제거
-            // this.player.playNote(lane); 
-            this.checkHit(lane);
+            this.triggerLaneDown(lane);
+            this.elements.touchZones[lane]?.classList.add('active');
         }
     }
 
@@ -172,38 +240,8 @@ class GameEngine {
         const key = e.key.toLowerCase();
         const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
         if (lane !== -1) {
-            this.state.keyPressed[lane] = false;
-
-            // [교정] 롱노트 종료(Release) 판정 - 더 너그러운 범위 적용
-            const activeLN = this.state.activeLongNotes[lane];
-            if (activeLN) {
-                const now = this.state.currentTime;
-                const endTime = activeLN.time + activeLN.duration;
-                const diff = Math.abs(now - endTime);
-
-                // 릴리즈 전용 윈도우 사용 (기본 타격보다 넉넉하게)
-                const releaseWindow = (CONFIG.NOTES.JUDGMENT.RELEASE_WINDOW || 0.250) * 1000;
-
-                if (activeLN.completed) return;
-
-                if (diff <= releaseWindow) {
-                    // 성공적인 릴리즈 (판정은 타격 기준과 동일하게 계산하되 범위만 넓음)
-                    const judgment = this.getJudgment(diff / 1000 / 1.5); // 릴리즈는 관대하게
-                    this.applyJudgment(`Release ${judgment}`);
-                } else {
-                    // 범위를 벗어난 경우 (너무 일찍 혹은 너무 늦게)
-                    this.applyJudgment("MISS");
-                }
-
-                // [신규] 롱노트 키음 종료
-                if (this.player && activeLN.originalPitch !== undefined) {
-                    this.player.triggerNoteOff(activeLN.originalChannel, activeLN.originalPitch);
-                }
-
-                activeLN.completed = true;
-                this.syncCheckIndex();
-                this.state.activeLongNotes[lane] = null;
-            }
+            this.triggerLaneUp(lane);
+            this.elements.touchZones[lane]?.classList.remove('active');
         }
     }
 
@@ -256,6 +294,18 @@ class GameEngine {
         } catch (e) {
             alert("MIDI 로드 실패");
             this.elements.startBtn.innerText = "START SESSION";
+        }
+    }
+
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
         }
     }
 

@@ -78,11 +78,24 @@
 
             <canvas id="game-canvas"></canvas>
 
-            <div id="lanes-labels">
-                <div class="lane-label">KICK<span>(D)</span></div>
-                <div class="lane-label">SNARE<span>(F)</span></div>
-                <div class="lane-label">CLAP<span>(J)</span></div>
-                <div class="lane-label">HAT<span>(K)</span></div>
+            <!-- Touch Zones for Mobile & Hand-feel -->
+            <div id="touch-zones">
+                <div class="touch-zone" data-lane="0">
+                    <div class="lane-label">KICK<span>(D)</span></div>
+                    <div class="touch-effect"></div>
+                </div>
+                <div class="touch-zone" data-lane="1">
+                    <div class="lane-label">SNARE<span>(F)</span></div>
+                    <div class="touch-effect"></div>
+                </div>
+                <div class="touch-zone" data-lane="2">
+                    <div class="lane-label">CLAP<span>(J)</span></div>
+                    <div class="touch-effect"></div>
+                </div>
+                <div class="touch-zone" data-lane="3">
+                    <div class="lane-label">HAT<span>(K)</span></div>
+                    <div class="touch-effect"></div>
+                </div>
             </div>
 
             <div id="action-bar">
@@ -91,6 +104,7 @@
                     <div id="progress-bar-fill"></div>
                 </div>
                 <span id="time-display">00:00 / 00:00</span>
+                <button id="fullscreen-btn" class="icon-btn">FS</button>
             </div>
         </main>
 

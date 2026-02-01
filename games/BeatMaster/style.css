@@ -274,17 +274,25 @@ input[type="range"]::-webkit-slider-thumb:hover {
     transform: translateY(1px);
 }
 
-/* Game Interface */
+/* Responsive Game Interface */
 #game-container {
     position: relative;
     width: 100%;
     height: 100%;
     max-width: 600px;
+    margin: 0 auto;
     background: linear-gradient(to bottom, #11111a, #0a0a12);
     border-left: 1px solid var(--glass-border);
     border-right: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
+}
+
+@media (max-width: 600px) {
+    #game-container {
+        max-width: 100%;
+        border: none;
+    }
 }
 
 #hud {
@@ -324,31 +332,84 @@ input[type="range"]::-webkit-slider-thumb:hover {
 #game-canvas {
     flex: 1;
     width: 100%;
+    touch-action: none;
 }
 
-#lanes-labels {
+/* Touch Zones & Labels */
+#touch-zones {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    padding: 1rem 0;
-    text-align: center;
+    height: 160px;
+    /* 터치 영역 지분 확대 */
     border-top: 2px solid var(--primary);
-    background: rgba(255, 0, 122, 0.1);
+    background: rgba(255, 0, 122, 0.05);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.touch-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.touch-zone:last-child {
+    border-right: none;
 }
 
 .lane-label {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 800;
     color: var(--primary);
-    opacity: 0.7;
+    opacity: 0.8;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .lane-label span {
     font-size: 0.6rem;
     color: white;
     opacity: 0.5;
+}
+
+/* 터치 시 화려한 효과 */
+.touch-zone.active {
+    background: rgba(255, 0, 122, 0.2);
+}
+
+.touch-effect {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, var(--primary), transparent);
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: none;
+}
+
+.touch-zone.active .touch-effect {
+    opacity: 0.3;
+    animation: touch-glow 0.4s ease-out;
+}
+
+@keyframes touch-glow {
+    0% {
+        transform: translateY(100%);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: translateY(0%);
+        opacity: 0;
+    }
 }
 
 #judgment-display {

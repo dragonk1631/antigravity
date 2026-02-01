@@ -3,9 +3,9 @@
  * 우선순위 기반 전체 트랙 계층형 노트 생성 (Main -> Sub1 -> ... -> Sub N)
  * 배경음: 모든 트랙 재생 (드럼 포함)
  * 난이도별 로직:
- * - EASY: GapBuffer 600ms, MinInterval 250ms (연타 방지)
- * - NORMAL: GapBuffer 100ms
- * - HARD: GapBuffer 50ms
+ * - EASY: GapBuffer 1000ms, MinInterval 500ms (단선율, 매우 여유로움)
+ * - NORMAL: GapBuffer 100ms, MinInterval 80ms (단선율, 표준)
+ * - HARD: GapBuffer 20ms, MinInterval 40ms (코드/Chord 허용, 고밀도)
  */
 
 import { CONFIG } from '../config/GameConfig.js';
@@ -39,28 +39,28 @@ export class MidiParser {
 
     analyze(midi, difficulty = 'NORMAL', originalBuffer) {
         // 난이도별 파라미터 설정
-        let gapBuffer = 100; // 기본(NORMAL)
-        let maxTracks = 0;   // 0 = 무제한
-        let minInterval = 0; // 연타 방지 최소 간격 (ms)
+        let gapBuffer = 100;
+        let maxTracks = 0;
+        let minInterval = 0;
 
         switch (difficulty) {
             case 'EASY':
-                console.log("%c[MidiParser] 🚀 Executing MODE: EASY (Very Chill)", "color: #00ff00; font-weight: bold; font-size: 14px;");
-                gapBuffer = 1000; // 1.0초 이상 빈 공간만 채움
-                maxTracks = 0;   // 모든 트랙 허용
-                minInterval = 500; // 0.5초 미만 연타 제거 (매우 여유로운 간격)
+                console.log("%c[MidiParser] 🚀 Mode: EASY (Very Chill)", "color: #00ff00; font-weight: bold;");
+                gapBuffer = 1000;
+                maxTracks = 0;
+                minInterval = 500;
                 break;
             case 'HARD':
-                console.log("%c[MidiParser] 🚀 Executing MODE: HARD (Density High)", "color: #ff0000; font-weight: bold; font-size: 14px;");
-                gapBuffer = 50;  // 거의 모든 틈 채움
-                maxTracks = 0;   // 무제한
-                minInterval = 50; // 제한 거의 없음
+                console.log("%c[MidiParser] 🚀 Mode: HARD (Extreme Chords & Density)", "color: #ff0000; font-weight: bold;");
+                gapBuffer = 20;
+                maxTracks = 0;
+                minInterval = 40;
                 break;
             default: // NORMAL
-                console.log("%c[MidiParser] 🚀 Executing MODE: NORMAL (Standard)", "color: #00ffff; font-weight: bold; font-size: 14px;");
-                gapBuffer = 100; // 적당한 밀도
-                maxTracks = 0;   // 무제한
-                minInterval = 100; // 적당한 간격 유지
+                console.log("%c[MidiParser] 🚀 Mode: NORMAL (Standard Gap-Fill)", "color: #00ffff; font-weight: bold;");
+                gapBuffer = 100;
+                maxTracks = 0;
+                minInterval = 80;
                 break;
         }
 
@@ -127,8 +127,11 @@ export class MidiParser {
         selectedTracks.forEach((trackObj, priority) => {
             const newNotes = parseNotes(trackObj, priority);
 
-            if (priority === 0) {
-                // 1순위 트랙은 무조건 전량 투입
+            // [HARD 전용] 1순위와 2순위 트랙을 모두 메인으로 취급하여 동시 입력(Chord) 유도
+            const isAlwaysAddPriority = (difficulty === 'HARD') ? (priority < 2) : (priority === 0);
+
+            if (isAlwaysAddPriority) {
+                // 이 순위의 트랙들은 빈 공간 여부 상관없이 전량이 투입됨 (후속 필터에서 걸러짐)
                 mergedNotes = mergedNotes.concat(newNotes);
             } else {
                 // 하위 순위 트랙은 "빈 공간"에만 투입 (Fill-in)
@@ -144,10 +147,21 @@ export class MidiParser {
                         const exStart = existing.time - GAP_BUFFER;
                         const exEnd = existing.time + existing.duration + GAP_BUFFER;
 
-                        // 범위 겹침 판정
-                        if (myStart < exEnd && myEnd > exStart) {
-                            isColliding = true;
-                            break;
+                        // [핵심 변경] HARD 모드는 '같은 레인'인 경우만 충돌로 간주 -> 코드(Chord) 허용
+                        const isTimeOverlapping = (myStart < exEnd && myEnd > exStart);
+                        const isSameLane = (note.lane === existing.lane);
+
+                        // exStart, exEnd 재정의 (gap_buffer 적용)
+                        if (difficulty === 'HARD') {
+                            if (isTimeOverlapping && isSameLane) {
+                                isColliding = true;
+                                break;
+                            }
+                        } else {
+                            if (isTimeOverlapping) {
+                                isColliding = true;
+                                break;
+                            }
                         }
                     }
 
@@ -169,8 +183,10 @@ export class MidiParser {
         let lastNoteTime = -9999; // 연타 방지용
 
         mergedNotes.forEach(note => {
-            // [New] 연타 방지: 이전 노트와 간격이 너무 좁으면 스킵
-            if (note.time - lastNoteTime < minInterval) {
+            // [최종 수정] 연타 방지: 이전 노트와 '간격이 존재하면서' 너무 좁으면 스킵
+            // 동시 입력(Chord)인 경우(note.time === lastNoteTime)는 간격이 0이므로 허용
+            const timeDiff = note.time - lastNoteTime;
+            if (timeDiff > 0 && timeDiff < minInterval) {
                 return;
             }
 
