@@ -1,0 +1,81 @@
+{
+    "header": {
+        "name": "Default Level",
+        "ppq": 480,
+        "tempos": [
+            {
+                "bpm": 128
+            }
+        ]
+    },
+    "tracks": [
+        {
+            "name": "Melody",
+            "channel": 0,
+            "notes": [
+                {
+                    "time": 0,
+                    "midi": 60,
+                    "name": "C4",
+                    "velocity": 0.5,
+                    "duration": 0.5
+                },
+                {
+                    "time": 0.5,
+                    "midi": 64,
+                    "name": "E4",
+                    "velocity": 0.6,
+                    "duration": 0.5
+                },
+                {
+                    "time": 1,
+                    "midi": 67,
+                    "name": "G4",
+                    "velocity": 0.7,
+                    "duration": 0.5
+                },
+                {
+                    "time": 1.5,
+                    "midi": 72,
+                    "name": "C5",
+                    "velocity": 0.8,
+                    "duration": 0.5
+                }
+            ]
+        },
+        {
+            "name": "Drums",
+            "channel": 9,
+            "notes": [
+                {
+                    "time": 0,
+                    "midi": 36,
+                    "name": "Kick",
+                    "velocity": 0.9,
+                    "duration": 0.1
+                },
+                {
+                    "time": 0.468,
+                    "midi": 42,
+                    "name": "HiHat",
+                    "velocity": 0.5,
+                    "duration": 0.1
+                },
+                {
+                    "time": 0.937,
+                    "midi": 38,
+                    "name": "Snare",
+                    "velocity": 0.8,
+                    "duration": 0.1
+                },
+                {
+                    "time": 1.406,
+                    "midi": 42,
+                    "name": "HiHat",
+                    "velocity": 0.5,
+                    "duration": 0.1
+                }
+            ]
+        }
+    ]
+}

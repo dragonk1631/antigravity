@@ -136,11 +136,12 @@ const Book: React.FC = () => {
                             <div className="relative group">
                                 <label className="block text-xs font-bold text-gray-400 mb-1 ml-1 group-focus-within:text-primary transition-colors">DATE</label>
                                 <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
                                     <input
                                         type="date"
                                         name="date"
                                         required
-                                        className="w-full px-4 py-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary focus:border-primary outline-none transition-all font-medium text-gray-700 text-sm"
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary focus:border-primary outline-none transition-all font-medium text-gray-700 text-sm"
                                         value={formData.date}
                                         onChange={handleChange}
                                     />
@@ -149,10 +150,11 @@ const Book: React.FC = () => {
                             <div className="relative group">
                                 <label className="block text-xs font-bold text-gray-400 mb-1 ml-1 group-focus-within:text-primary transition-colors">TIME</label>
                                 <div className="relative">
+                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
                                     <select
                                         name="time"
                                         required
-                                        className="w-full px-4 py-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary focus:border-primary outline-none transition-all font-medium text-gray-700 appearance-none text-sm"
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-secondary focus:border-primary outline-none transition-all font-medium text-gray-700 appearance-none text-sm"
                                         value={formData.time}
                                         onChange={handleChange}
                                     >

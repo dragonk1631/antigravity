@@ -39,15 +39,25 @@ class IntroScene extends Phaser.Scene {
             particles.fillCircle(Math.random() * width, Math.random() * height, Math.random() * 3);
         }
 
-        this.input.once('pointerdown', () => {
-            if (window.soundManager) {
-                window.soundManager.init();
-                window.soundManager.startBGM('menu');
+        // 입력 리스너 (안전한 폴백 포함)
+        const setupInput = () => {
+            if (this.input) {
+                this.input.once('pointerdown', () => {
+                    if (window.soundManager) {
+                        window.soundManager.init();
+                        window.soundManager.startBGM('menu');
+                    }
+                    this.cameras.main.fade(500, 0, 0, 0);
+                    this.cameras.main.once('camerafadeoutcomplete', () => {
+                        this.scene.start('MainMenuScene');
+                    });
+                });
+            } else {
+                // 입력 시스템 부재 시 강제 전환 폴백
+                this.time.delayedCall(2000, () => this.scene.start('MainMenuScene'));
             }
-            this.cameras.main.fade(500, 0, 0, 0);
-            this.cameras.main.on('camerafadeoutcomplete', () => {
-                this.scene.start('MainMenuScene');
-            });
-        });
+        };
+
+        setupInput();
     }
 }

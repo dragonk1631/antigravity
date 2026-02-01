@@ -4,21 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Game Portfolio</title>
+    <title>Y8 Inspired Game Portfolio</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f0f13;
-            --card-bg: #1a1a23;
-            --text-main: #ffffff;
-            --text-sub: #a0a0b0;
-            --accent: #5e6aff;
-            --accent-hover: #7a84ff;
+            --bg-color: #1a1a1a;
+            --header-bg: #121212;
+            --card-bg: #2a2a2a;
+            --text-main: #eeeeee;
+            --text-sub: #b0b0b0;
+            --accent: #ffcc00;
+            --accent-hover: #ffd633;
+            --grid-gap: 20px;
         }
 
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Roboto', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             display: flex;
@@ -27,150 +31,188 @@
         }
 
         header {
-            text-align: center;
-            padding: 30px 20px;
-            /* Reduced padding */
-            background: radial-gradient(circle at center, #2a2a35 0%, var(--bg-color) 70%);
+            background-color: var(--header-bg);
+            padding: 15px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        h1 {
-            font-size: 2.2rem;
-            /* Reduced font size */
-            margin: 0;
-            background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        p.subtitle {
+        .search-container {
+            flex: 1;
+            max-width: 600px;
+            margin: 0 20px;
+            position: relative;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-container input:focus {
+            border-color: var(--accent);
+        }
+
+        .sort-bar {
+            background-color: #222;
+            padding: 10px 40px;
+            display: flex;
+            gap: 15px;
+            border-bottom: 1px solid #333;
+            overflow-x: auto;
+        }
+
+        .sort-btn {
+            background: none;
+            border: none;
             color: var(--text-sub);
-            font-size: 1rem;
-            /* Reduced font size */
-            margin-top: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .sort-btn:hover,
+        .sort-btn.active {
+            color: white;
+            background-color: #444;
+        }
+
+        .sort-btn.active {
+            color: var(--accent);
+            font-weight: bold;
         }
 
         main {
             flex: 1;
-            max-width: 1400px;
-            /* Increased max-width */
+            padding: 30px 40px;
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 20px;
-            /* Reduced padding */
             width: 100%;
             box-sizing: border-box;
         }
 
         .game-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            /* Reduced min width */
-            gap: 20px;
-            /* Reduced gap */
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: var(--grid-gap);
         }
 
         .game-card {
             background-color: var(--card-bg);
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.2s, box-shadow 0.2s;
             text-decoration: none;
             color: inherit;
-            border: 1px solid #333;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         .game-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
-            border-color: var(--accent);
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            z-index: 10;
         }
 
         .card-image {
-            height: 140px;
-            /* Reduced height */
-            background-color: #2a2a35;
+            aspect-ratio: 16 / 9;
+            background-color: #333;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5rem;
-            /* Reduced icon size */
+            font-size: 3rem;
+            position: relative;
         }
 
-        .card-content {
-            padding: 15px;
-            /* Reduced padding */
-            flex: 1;
+        .rating-badge {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
             display: flex;
-            flex-direction: column;
-        }
-
-        .game-title {
-            font-size: 1.2rem;
-            /* Reduced font size */
-            font-weight: bold;
-            margin-bottom: 8px;
+            align-items: center;
+            gap: 3px;
             color: var(--accent);
         }
 
-        .game-desc {
-            color: var(--text-sub);
-            font-size: 0.9rem;
-            line-height: 1.4;
-            margin-bottom: 15px;
-            flex: 1;
-            display: -webkit-box;
-            line-clamp: 3;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        .card-content {
+            padding: 12px;
         }
 
-        .play-btn {
-            background-color: var(--accent);
-            color: white;
-            padding: 8px 16px;
-            /* Reduced padding */
-            border-radius: 6px;
-            text-align: center;
+        .game-title {
+            font-size: 14px;
             font-weight: bold;
-            font-size: 0.9rem;
-            transition: background-color 0.2s;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .game-card:hover .play-btn {
-            background-color: var(--accent-hover);
+        .game-meta {
+            font-size: 11px;
+            color: var(--text-sub);
+            display: flex;
+            justify-content: space-between;
         }
 
         footer {
             text-align: center;
             padding: 20px;
-            /* Reduced padding */
             color: var(--text-sub);
-            font-size: 0.8rem;
+            font-size: 13px;
             border-top: 1px solid #333;
+            background-color: var(--header-bg);
         }
 
-        /* Game specific placeholders */
-        .tetris-bg {
-            background: linear-gradient(45deg, #FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF);
-        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            header {
+                padding: 10px 20px;
+                flex-direction: column;
+                gap: 10px;
+            }
 
-        .shoot-bg {
-            background: linear-gradient(45deg, #1e3c72, #2a5298);
-        }
+            .search-container {
+                margin: 0;
+                width: 100%;
+            }
 
-        .war-bg {
-            background: linear-gradient(45deg, #2C3E50, #FD746C);
-        }
+            .sort-bar {
+                padding: 10px 20px;
+            }
 
-        .match3-bg {
-            background: linear-gradient(45deg, #FF9A9E, #FECFEF);
-        }
-
-        .skydash-bg {
-            background: linear-gradient(45deg, #87CEEB, #4169E1);
+            main {
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -178,85 +220,148 @@
 <body>
 
     <header>
-        <h1>Game Portfolio</h1>
-        <p class="subtitle">Creative Coding & Game Development Projects</p>
+        <a href="#" class="logo">🎮 GAMEXORE</a>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="게임 이름 검색...">
+        </div>
+        <div style="flex-shrink: 0; color: var(--text-sub); font-size: 14px;">HTML5 Games</div>
     </header>
 
+    <div class="sort-bar">
+        <button class="sort-btn active" data-sort="latest">최신순</button>
+        <button class="sort-btn" data-sort="rating">별점순</button>
+        <button class="sort-btn" data-sort="name">이름순</button>
+    </div>
+
     <main>
-        <div class="game-grid">
-            <!-- Tetris Link -->
-            <a href="./Tetris/" class="game-card">
-                <div class="card-image tetris-bg">🧩</div>
-                <div class="card-content">
-                    <div class="game-title">Evolving Tetris</div>
-                    <div class="game-desc">
-                        AI 상대와 대결하는 진화된 테트리스 게임입니다. 레벨에 따라 달라지는 AI와 아케이드 모드를 경험해보세요.
-                    </div>
-                    <div class="play-btn">Play Now &rarr;</div>
-                </div>
-            </a>
-
-            <!-- ShootToClone Link -->
-            <a href="./ShootToClone/" class="game-card">
-                <div class="card-image shoot-bg">✈️</div>
-                <div class="card-content">
-                    <div class="game-title">Shoot To Clone</div>
-                    <div class="game-desc">
-                        적을 복제하여 싸우는 슈팅 게임입니다. 전략적인 유닛 배치와 호쾌한 슈팅 액션을 즐겨보세요.
-                    </div>
-                    <div class="play-btn">Play Now &rarr;</div>
-                </div>
-            </a>
-
-            <!-- LastWar Link -->
-            <a href="./LastWar/" class="game-card">
-                <div class="card-image war-bg">🛡️</div>
-                <div class="card-content">
-                    <div class="game-title">Last War</div>
-                    <div class="game-desc">
-                        최후의 전쟁에서 살아남으세요. 끊임없이 몰려오는 적들을 막아내고 기지를 방어하는 디펜스 게임입니다.
-                    </div>
-                    <div class="play-btn">Play Now &rarr;</div>
-                </div>
-            </a>
-
-            <!-- Match3Saga Link -->
-            <a href="./Match3Saga/" class="game-card">
-                <div class="card-image match3-bg">🍬</div>
-                <div class="card-content">
-                    <div class="game-title">Match-3 Saga</div>
-                    <div class="game-desc">
-                        달콤한 캔디 매치 3 퍼즐 게임입니다. 화려한 이펙트와 함께 터지는 캔디의 즐거움을 느껴보세요!
-                    </div>
-                    <div class="play-btn">Play Now &rarr;</div>
-                </div>
-            </a>
-
-            <!-- SkyDash Link -->
-            <a href="./SkyDash/" class="game-card">
-                <div class="card-image skydash-bg">🏃</div>
-                <div class="card-content">
-                    <div class="game-title">Sky Dash</div>
-                    <div class="game-desc">
-                        무한의 계단을 오르는 아케이드 게임입니다. 타이밍에 맞춰 방향을 바꾸고 끝없이 올라가보세요!
-                    </div>
-                    <div class="play-btn">Play Now &rarr;</div>
-                </div>
-            </a>
-
-            <!-- 
-            [새 게임 추가 방법 / How to add a new game]
-            1. 아래 주석을 복사해서 바로 위에 붙여넣으세요.
-            2. href="./폴더이름/" 을 변경하세요.
-            3. 아이콘과 제목, 설명을 변경하세요.
-            -->
+        <div class="game-grid" id="gameGrid">
+            <!-- Games will be injected here -->
         </div>
     </main>
 
     <footer>
-        &copy; 2026 Game Portfolio. All rights reserved.
+        &copy; 2026 Game Portfolio Project. Inspired by Y8 Design.
     </footer>
 
+    <script>
+        const games = [
+            {
+                id: 'tetris',
+                title: 'Evolving Tetris',
+                path: './Tetris/',
+                icon: '🧩',
+                rating: 4.8,
+                date: '2026-01-20',
+                description: 'AI 상대와 대결하는 진화된 테트리스'
+            },
+            {
+                id: 'shoot',
+                title: 'Shoot To Clone',
+                path: './ShootToClone/',
+                icon: '✈️',
+                rating: 4.5,
+                date: '2026-01-19',
+                description: '적을 복제하여 싸우는 슈팅 게임'
+            },
+            {
+                id: 'war',
+                title: 'Last War',
+                path: './LastWar/',
+                icon: '🛡️',
+                rating: 4.2,
+                date: '2026-01-22',
+                description: '기지를 방어하는 디펜스 게임'
+            },
+            {
+                id: 'match3',
+                title: 'Match-3 Saga',
+                path: './Match3Saga/',
+                icon: '🍬',
+                rating: 4.6,
+                date: '2026-01-23',
+                description: '달콤한 캔디 매치 3 퍼즐'
+            },
+            {
+                id: 'skydash',
+                title: 'Sky Dash',
+                path: './SkyDash/',
+                icon: '🏃',
+                rating: 4.3,
+                date: '2026-01-25',
+                description: '무한의 계단을 오르는 아케이드'
+            },
+            {
+                id: 'beatmaster',
+                title: 'BeatMaster',
+                path: './BeatMaster/',
+                icon: '🥁',
+                rating: 4.9,
+                date: '2026-01-31',
+                description: 'MIDI 기반 프리미엄 드럼 리듬 게임'
+            },
+            {
+                id: 'rhythm',
+                title: 'Rhythm Odyssey',
+                path: './RhythmOdyssey/',
+                icon: '🎵',
+                rating: 4.9,
+                date: '2026-01-31',
+                description: 'BPM에 맞춘 다이나믹 리듬 액션'
+            }
+        ];
+
+        let currentSort = 'latest';
+        let searchQuery = '';
+
+        const gameGrid = document.getElementById('gameGrid');
+        const searchInput = document.getElementById('searchInput');
+        const sortButtons = document.querySelectorAll('.sort-btn');
+
+        function renderGames() {
+            let filtered = games.filter(g =>
+                g.title.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+
+            filtered.sort((a, b) => {
+                if (currentSort === 'name') return a.title.localeCompare(b.title);
+                if (currentSort === 'rating') return b.rating - a.rating;
+                if (currentSort === 'latest') return new Date(b.date) - new Date(a.date);
+                return 0;
+            });
+
+            gameGrid.innerHTML = filtered.map(game => `
+                <a href="${game.path}" class="game-card">
+                    <div class="card-image">${game.icon}
+                        <div class="rating-badge">⭐ ${game.rating}</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="game-title">${game.title}</div>
+                        <div class="game-meta">
+                            <span>HTML5</span>
+                            <span>${game.date}</span>
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderGames();
+        });
+
+        sortButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                sortButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSort = btn.dataset.sort;
+                renderGames();
+            });
+        });
+
+        // Initial render
+        renderGames();
+    </script>
 </body>
 
 </html>

@@ -31,11 +31,23 @@ class BootScene extends Phaser.Scene {
     }
 
     create() {
+        console.log('[BootScene] create started');
         // SoundManager 및 MidiPlayer 초기화
-        window.soundManager = new SoundManager(this.sound);
+        try {
+            window.soundManager = new SoundManager(this.sound);
+            console.log('[BootScene] soundManager initialized:', !!window.soundManager);
+        } catch (e) {
+            console.error('[BootScene] Failed to initialize SoundManager:', e);
+        }
 
         // 핵심 악기 사전 로딩 (MIDI 엔진 초기화)
+        if (!window.midiPlayer) {
+            console.log('[BootScene] window.midiPlayer not found, creating new instance');
+            window.midiPlayer = new MidiPlayer();
+        }
+
         if (window.midiPlayer) {
+            console.log('[BootScene] calling midiPlayer.init');
             window.midiPlayer.init();
         }
 

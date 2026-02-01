@@ -51,9 +51,8 @@ class Stair extends Phaser.GameObjects.Container {
             }
             this.stairImage = scene.add.image(0, 0, 'stair_texture');
             this.stairImage.setOrigin(0.5, 0);
+            this.add(this.stairImage);
         }
-
-        this.add(this.stairImage);
     }
 
     /**
