@@ -76,7 +76,8 @@ class GameEngine {
             hpBar: document.getElementById('hp-bar-fill'),
             resultOverlay: document.getElementById('result-overlay'),
             failOverlay: document.getElementById('game-over-overlay'),
-            scanBtn: document.getElementById('scan-btn')
+            scanBtn: document.getElementById('scan-btn'),
+            gameContainer: document.getElementById('game-container')
         };
 
         if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
@@ -200,9 +201,7 @@ class GameEngine {
         document.querySelectorAll('.home-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.hideOverlays();
-                this.elements.overlay.classList.add('visible');
-                this.state.isPlaying = false;
-                if (this.player) this.player.stop();
+                this.returnToMenu();
             });
         });
 
@@ -388,16 +387,45 @@ class GameEngine {
         // [수정] 배경음 미디가 확실히 로드되도록 await 처리 (메모리 내 바이너리 우선 사용)
         await this.loadMidiIntoPlayer();
 
+        await this.beginGameplay();
+    }
+
+    /** [핵심] 곡을 실제로 시작하는 공통 로직 (최초 시작 & 재시작 공유) */
+    async beginGameplay() {
+        // UI 초기화
+        this.elements.overlay.classList.remove('visible');
         this.elements.overlay.classList.add('hidden');
+        this.elements.gameContainer.style.visibility = 'visible'; // 게임 컨테이너 표시
 
         // [Fix] 모바일 브라우저 주소창 변화 대응을 위해 약간의 지연 후 리사이즈
         setTimeout(() => this.resize(), 100);
+
+        // 상태 초기화
+        this.state.score = 0;
+        this.state.combo = 0;
+        this.state.hp = 100;
+        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
+        this.state.nextCheckIndex = 0;
+        this.state.nextLaneNoteIndices = [0, 0, 0, 0];
+        this.state.lastUIUpdate = { score: -1, combo: -1, time: "", hp: -1 };
+
+        // 모든 노트 상태 초기화 (재시작 필수)
+        this.state.notes.forEach(n => {
+            n.hit = false;
+            n.completed = false;
+            n.missed = false;
+        });
+
+        if (this.player) {
+            this.player.stop(); // 0초로 리셋
+        }
 
         // 3초 카운트다운 연출
         await this.runCountdown();
 
         this.state.isPlaying = true;
-        this.state.gameStartTime = performance.now(); // 시스템 기준 시작 시간
+        this.state.gameStartTime = performance.now(); // [Fix] 시스템 기준 시작 시간 갱신 (재시작 시 필수!)
+        this.state.startTime = this.state.gameStartTime;
         this.state.audioStarted = false; // 오디오 재생 여부 플래그
 
         this.debug.log("게임을 시작합니다! (리드인 중...)", "info");
@@ -443,11 +471,25 @@ class GameEngine {
         await this.player.loadMidi(buffer);
     }
 
+    returnToMenu() {
+        this.state.isPlaying = false;
+        if (this.player) this.player.stop();
+
+        // 게임 컨테이너 숨기기
+        this.elements.gameContainer.style.visibility = 'hidden';
+
+        // 메인 메뉴 오버레이 표시
+        this.elements.overlay.classList.remove('hidden');
+        this.elements.overlay.classList.add('visible');
+        this.elements.startBtn.innerText = "START SESSION";
+    }
+
     togglePause() {
         if (!this.state.isPlaying) return;
         this.state.isPlaying = false;
         this.player.pause();
         this.elements.overlay.classList.remove('hidden');
+        this.elements.overlay.classList.add('visible'); // [Fix] visible도 추가
         this.elements.startBtn.innerText = "RESUME";
     }
 
@@ -482,43 +524,7 @@ class GameEngine {
 
     async start() {
         if (this.state.isPlaying) return;
-
-        // Reset state
-        this.state.score = 0;
-        this.state.combo = 0;
-        this.state.hp = 100;
-        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
-        this.state.nextCheckIndex = 0;
-        this.state.nextLaneNoteIndices = [0, 0, 0, 0];
-        this.state.lastUIUpdate = { score: -1, combo: -1, time: "", hp: -1 };
-
-        // [중요] 모든 노트 상태 초기화 (재시작 필수)
-        this.state.notes.forEach(n => {
-            n.hit = false;
-            n.completed = false;
-            n.missed = false;
-        });
-
-        if (this.player) {
-            this.player.stop(); // 0초로 리셋
-        }
-
-        // 메인 메뉴 오버레이 숨기기 (확실하게 hidden 추가)
-        this.elements.overlay.classList.remove('visible');
-        this.elements.overlay.classList.add('hidden');
-
-        // 카운트다운 연출 추가
-        await this.runCountdown();
-
-        this.state.isPlaying = true;
-        this.state.startTime = performance.now();
-        requestAnimationFrame((t) => this.loop(t));
-
-        if (this.player) {
-            // 리드인 시간을 고려하여 오디오 재생 제어는 loop()가 담당하게 됨
-            // 하지만 seq.play()는 여기서 호출하지 않고 loop()에서 audioStarted 플래그로 관리함
-            this.state.audioStarted = false;
-        }
+        await this.beginGameplay();
     }
 
     checkHit(lane) {
