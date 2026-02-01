@@ -898,21 +898,21 @@ class GameEngine {
         // [Enhanced] Thick Judgment Line (Satisfying DJMAX Style)
         const hitFlash = Math.max(0, (200 - (performance.now() - this.state.lastHitTime)) / 200);
 
-        // Thick Background Glow (Cyan)
+        // Thick Background Glow (Cyan) - Doubled thickness (16 -> 32)
         const judgmentColor = 'var(--judgment)';
         this.ctx.fillStyle = `rgba(0, 242, 255, ${0.1 + hitFlash * 0.4})`;
-        this.ctx.fillRect(0, hitLineY - 8 - hitFlash * 5, this.state.canvasWidth, 16 + hitFlash * 10);
+        this.ctx.fillRect(0, hitLineY - 16 - hitFlash * 10, this.state.canvasWidth, 32 + hitFlash * 20);
 
-        // Solid Core Line
+        // Solid Core Line - Doubled thickness (6 -> 12)
         this.ctx.strokeStyle = judgmentColor;
-        this.ctx.lineWidth = 6 + hitFlash * 4; // Thick!!
+        this.ctx.lineWidth = 12 + hitFlash * 8; // Ultra Thick!!
         this.ctx.beginPath();
         this.ctx.moveTo(0, hitLineY);
         this.ctx.lineTo(this.state.canvasWidth, hitLineY);
         this.ctx.stroke();
 
         if (!this.state.isMobile) {
-            this.ctx.shadowBlur = 20;
+            this.ctx.shadowBlur = 30; // Increased blur for thickness
             this.ctx.shadowColor = judgmentColor;
             this.ctx.stroke();
             this.ctx.shadowBlur = 0;
