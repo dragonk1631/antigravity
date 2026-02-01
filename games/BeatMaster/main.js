@@ -183,9 +183,9 @@ class GameEngine {
 
         // Overlay buttons
         document.querySelectorAll('.restart-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 this.hideOverlays();
-                this.start();
+                await this.start();
             });
         });
         document.querySelectorAll('.home-btn').forEach(btn => {
@@ -471,9 +471,10 @@ class GameEngine {
         this.elements.resultOverlay.classList.add('visible');
     }
 
-    start() {
+    async start() {
         if (this.state.isPlaying) return;
-        this.state.isPlaying = true;
+
+        // Reset state
         this.state.score = 0;
         this.state.combo = 0;
         this.state.hp = 100;
@@ -482,14 +483,33 @@ class GameEngine {
         this.state.nextLaneNoteIndices = [0, 0, 0, 0];
         this.state.lastUIUpdate = { score: -1, combo: -1, time: "", hp: -1 };
 
-        this.elements.overlay.classList.remove('visible');
+        // [중요] 모든 노트 상태 초기화 (재시작 필수)
+        this.state.notes.forEach(n => {
+            n.hit = false;
+            n.completed = false;
+            n.missed = false;
+        });
 
         if (this.player) {
-            this.player.play();
+            this.player.stop(); // 0초로 리셋
         }
 
+        // 메인 메뉴 오버레이 숨기기 (확실하게 hidden 추가)
+        this.elements.overlay.classList.remove('visible');
+        this.elements.overlay.classList.add('hidden');
+
+        // 카운트다운 연출 추가
+        await this.runCountdown();
+
+        this.state.isPlaying = true;
         this.state.startTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
+
+        if (this.player) {
+            // 리드인 시간을 고려하여 오디오 재생 제어는 loop()가 담당하게 됨
+            // 하지만 seq.play()는 여기서 호출하지 않고 loop()에서 audioStarted 플래그로 관리함
+            this.state.audioStarted = false;
+        }
     }
 
     checkHit(lane) {
