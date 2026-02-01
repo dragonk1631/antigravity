@@ -75,7 +75,8 @@ class GameEngine {
             fullscreenBtn: document.getElementById('fullscreen-btn'),
             hpBar: document.getElementById('hp-bar-fill'),
             resultOverlay: document.getElementById('result-overlay'),
-            failOverlay: document.getElementById('game-over-overlay')
+            failOverlay: document.getElementById('game-over-overlay'),
+            scanBtn: document.getElementById('scan-btn')
         };
 
         if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
@@ -156,6 +157,14 @@ class GameEngine {
                 await this.loadMidiData(buffer);
             }
         });
+
+        if (this.elements.scanBtn) {
+            this.elements.scanBtn.addEventListener('click', () => {
+                const msg = "브라우저 보안상 직접 파일을 스캔할 수 없습니다. 터미널(VSCode 등)에서 'node scansongs.js' 명령어를 실행한 후 새로고침해 주세요.";
+                this.debug.log(msg, "warn");
+                alert(msg);
+            });
+        }
 
         this.elements.songSelect.addEventListener('change', async (e) => {
             if (e.target.value) {
