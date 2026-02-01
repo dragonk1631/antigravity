@@ -446,16 +446,17 @@ class GameEngine {
     }
 
     async runCountdown() {
-        const el = this.elements.judgmentEl;
+        // [Fix] Use dedicated countdown element for better visibility
+        const el = document.getElementById('countdown-display');
         const counts = ["3", "2", "1", "READY!"];
 
         for (const msg of counts) {
             el.innerText = msg;
-            el.className = 'judgment-text countdown-text anim-popup'; // Use enhanced countdown style
+            el.className = 'countdown-text anim-popup visible'; // Ensure visibility
 
-            await new Promise(r => setTimeout(r, 1000)); // Change to 1s for better pacing
+            await new Promise(r => setTimeout(r, 1000));
         }
-        el.className = 'judgment-text';
+        el.className = '';
         el.innerText = "";
     }
 
