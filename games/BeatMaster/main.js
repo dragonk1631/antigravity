@@ -185,8 +185,8 @@ class GameEngine {
         // Overlay buttons
         document.querySelectorAll('.restart-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                this.hideOverlays();
-                await this.start();
+                this.hideOverlays(); // Likely redundant as startSession handles UI, but safe
+                await this.startSession();
             });
         });
         document.querySelectorAll('.home-btn').forEach(btn => {
@@ -404,21 +404,27 @@ class GameEngine {
             return;
         }
 
-        await this.setupAudio();
+        // [Optimize] Background loading during countdown
+        // Start loading MIDI/Audio and Countdown simultaneously
+        const loadingPromise = (async () => {
+            await this.setupAudio();
+            await this.loadMidiIntoPlayer();
+        })();
 
-        // [수정] 배경음 미디가 확실히 로드되도록 await 처리 (메모리 내 바이너리 우선 사용)
-        await this.loadMidiIntoPlayer();
-
-        await this.beginGameplay();
-    }
-
-    /** [핵심] 곡을 실제로 시작하는 공통 로직 (최초 시작 & 재시작 공유) */
-    async beginGameplay() {
-        // UI 초기화
+        // UI Reset & Countdown
         this.elements.overlay.classList.remove('visible');
         this.elements.overlay.classList.add('hidden');
-        this.elements.gameContainer.style.visibility = 'visible'; // 게임 컨테이너 표시
+        this.elements.gameContainer.style.visibility = 'visible';
 
+        // Wait for BOTH to complete (Parallel execution)
+        await Promise.all([loadingPromise, this.runCountdown()]);
+
+        // Start Game
+        this.beginGameplay();
+    }
+
+    /** [핵심] 곡을 실제로 시작하는 로직 (초기화 및 루프 시작) */
+    beginGameplay() {
         // [Fix] 모바일 브라우저 주소창 변화 대응을 위해 약간의 지연 후 리사이즈
         setTimeout(() => this.resize(), 100);
 
@@ -442,8 +448,7 @@ class GameEngine {
             this.player.stop(); // 0초로 리셋
         }
 
-        // 3초 카운트다운 연출
-        await this.runCountdown();
+        // (Countdown is now handled in startSession/restart logic)
 
         this.state.isPlaying = true;
         this.state.gameStartTime = performance.now(); // [Fix] 시스템 기준 시작 시간 갱신 (재시작 시 필수!)
@@ -462,7 +467,8 @@ class GameEngine {
 
         for (const msg of counts) {
             el.innerText = msg;
-            el.className = 'countdown-text anim-popup visible'; // Ensure visibility
+            // [Feature] Pulse animation for countdown
+            el.className = 'countdown-text anim-popup visible pulse';
 
             await new Promise(r => setTimeout(r, 1000));
         }
@@ -798,9 +804,12 @@ class GameEngine {
         // [Fix] Trigger 2 seconds AFTER the last note/long-note ends
         const gameEndTime = this.state.lastNoteEndTime + 2000;
 
+        // Debug logging for finish condition
+        // console.log(`Current: ${this.state.currentTime.toFixed(0)}, End: ${gameEndTime}`);
+
         if (this.state.isPlaying && this.state.currentTime >= gameEndTime) {
             this.state.isPlaying = false;
-            this.player.stop(); // Stop audio if it's still playing
+            if (this.player) this.player.stop();
             this.finishGameSequence();
         }
     }
