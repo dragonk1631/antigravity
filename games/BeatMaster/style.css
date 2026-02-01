@@ -363,141 +363,155 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 #game-canvas {
-    height: 67%;
-    /* Occupy roughly 70% with HUD */
+    height: 88%;
+    /* Mobile Extreme Max */
     width: 100%;
     touch-action: none;
     position: relative;
+    cursor: crosshair;
+}
+
+@media (min-width: 1024px) {
+    #game-canvas {
+        height: 94%;
+        /* PC Extreme Max */
+    }
 }
 
 /* Touch Zones & Labels */
 #touch-zones {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    height: 25%;
-    border-top: 6px double rgba(255, 180, 0, 0.8);
-    /* Metallic Rail */
-    box-shadow: 0 -10px 40px rgba(255, 0, 122, 0.4);
-    background: linear-gradient(to bottom, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 1));
+    height: 12%;
+    /* Mobile Remaining */
+    border-top: 4px double rgba(255, 180, 0, 0.6);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(to bottom, rgba(10, 10, 15, 1), rgba(0, 0, 0, 1));
     user-select: none;
     -webkit-user-select: none;
     z-index: 5;
+    padding-bottom: 5px;
+    /* Push icons down */
+}
+
+@media (min-width: 1024px) {
+    #touch-zones {
+        height: 6%;
+        /* PC Extreme Slim */
+    }
 }
 
 @media (max-height: 600px) {
     #touch-zones {
-        height: 40%;
-        min-height: 150px;
-    }
-
-    .lane-label {
-        font-size: 0.65rem;
+        height: 20%;
+        min-height: 100px;
     }
 }
 
 .touch-zone {
     position: relative;
     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.8rem;
+    cursor: pointer;
+    transition: all 0.1s;
+}
 
-    .touch-zone {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        gap: 0.8rem;
-        cursor: pointer;
-        transition: all 0.1s;
-    }
+.arcade-btn {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+}
 
-    .arcade-btn {
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
-    }
+.arcade-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+    margin-top: 10px;
+    /* Push down */
+}
 
+@media (min-width: 1024px) {
     .arcade-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1);
-        position: relative;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+        width: 28px;
+        height: 28px;
+        margin-top: 0px;
     }
 
     .arcade-icon::before {
-        content: '';
-        width: 24px;
-        height: 24px;
-        border: 2px solid currentColor;
-    }
-
-    .kick::before {
-        border-radius: 50%;
-    }
-
-    .snare::before {
-        transform: rotate(45deg);
-    }
-
-    .hihat::before {
-        clip-path: polygon(50% 0, 100% 100%, 0 100%);
-        width: 28px;
-        height: 24px;
-        border: none;
-        background: currentColor;
-    }
-
-    .crash::before {
-        content: '×';
-        border: none;
-        font-size: 40px;
-        line-height: 1;
-        margin-top: -5px;
-    }
-
-    .touch-zone[data-lane="0"] .arcade-icon {
-        color: #ff007a;
-        border-color: rgba(255, 0, 122, 0.4);
-    }
-
-    .touch-zone[data-lane="1"] .arcade-icon {
-        color: #00f2ff;
-        border-color: rgba(0, 242, 255, 0.4);
-    }
-
-    .touch-zone[data-lane="2"] .arcade-icon {
-        color: #ffcc00;
-        border-color: rgba(255, 204, 0, 0.4);
-    }
-
-    .touch-zone[data-lane="3"] .arcade-icon {
-        color: #00ff66;
-        border-color: rgba(0, 255, 102, 0.4);
-    }
-
-    .touch-zone.active .arcade-icon {
-        transform: scale(0.9) translateY(4px);
-        box-shadow: 0 0 30px currentColor;
-        border-color: currentColor;
-        background: currentColor;
-    }
-
-    .lane-label {
         font-size: 0.8rem;
-        font-weight: 800;
-        letter-spacing: 2px;
-        color: rgba(255, 255, 255, 0.5);
-        text-transform: uppercase;
     }
 
-    .touch-zone.active .lane-label {
-        color: white;
-        text-shadow: 0 0 10px white;
+    .touch-zone {
+        gap: 0.1rem !important;
     }
+}
 
+.arcade-icon::before {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: currentColor;
+    line-height: 1;
+}
+
+.touch-zone[data-lane="0"] .arcade-icon::before {
+    content: 'D';
+}
+
+.touch-zone[data-lane="1"] .arcade-icon::before {
+    content: 'F';
+}
+
+.touch-zone[data-lane="2"] .arcade-icon::before {
+    content: 'J';
+}
+
+.touch-zone[data-lane="3"] .arcade-icon::before {
+    content: 'K';
+}
+
+/* Shapes removed in favor of characters */
+
+.touch-zone[data-lane="0"] .arcade-icon {
+    color: #ff007a;
+    border-color: rgba(255, 0, 122, 0.4);
+}
+
+.touch-zone[data-lane="1"] .arcade-icon {
+    color: #00f2ff;
+    border-color: rgba(0, 242, 255, 0.4);
+}
+
+.touch-zone[data-lane="2"] .arcade-icon {
+    color: #ffcc00;
+    border-color: rgba(255, 204, 0, 0.4);
+}
+
+.touch-zone[data-lane="3"] .arcade-icon {
+    color: #00ff66;
+    border-color: rgba(0, 255, 102, 0.4);
+}
+
+.touch-zone.active .arcade-icon {
+    transform: scale(0.9) translateY(4px);
+    box-shadow: 0 0 30px currentColor;
+    border-color: currentColor;
+    background: currentColor;
+}
+
+/* Cleaned up labels */
+
+.touch-effect {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, var(--primary), transparent);
     opacity: 0;
     transition: opacity 0.1s;
     pointer-events: none;

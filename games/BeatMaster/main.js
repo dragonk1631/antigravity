@@ -162,43 +162,46 @@ class GameEngine {
         });
         window.addEventListener('keyup', (e) => this.handleKeyUp(e));
 
-        // 터치 존 이벤트 바인딩 (Pointer Events for Multi-touch)
-        this.elements.touchZones.forEach(zone => {
-            const lane = parseInt(zone.getAttribute('data-lane'));
-
-            zone.addEventListener('pointerdown', (e) => {
-                e.preventDefault();
-                // Capture the pointer to this element so we get pointerup even if the finger moves away
-                zone.setPointerCapture(e.pointerId);
-
-                // Track which lane this pointer is interacting with
-                this.state.lanePointerMap[e.pointerId] = lane;
-
-                this.triggerLaneDown(lane);
-                zone.classList.add('active');
-            });
-
-            zone.addEventListener('pointerup', (e) => {
-                e.preventDefault();
-                // Check if this pointer was the one that started the touch on this lane (or any lane)
-                if (this.state.lanePointerMap[e.pointerId] !== undefined) {
-                    const trackedLane = this.state.lanePointerMap[e.pointerId];
-                    this.triggerLaneUp(trackedLane);
-                    this.elements.touchZones[trackedLane]?.classList.remove('active');
-                    delete this.state.lanePointerMap[e.pointerId];
-                }
-            });
-
-            zone.addEventListener('pointercancel', (e) => {
-                e.preventDefault();
-                if (this.state.lanePointerMap[e.pointerId] !== undefined) {
-                    const trackedLane = this.state.lanePointerMap[e.pointerId];
-                    this.triggerLaneUp(trackedLane);
-                    this.elements.touchZones[trackedLane]?.classList.remove('active');
-                    delete this.state.lanePointerMap[e.pointerId];
-                }
-            });
+        // Universal Pointer Events on Canvas (Full-Lane Touch)
+        this.elements.canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            this.handlePointerDown(e);
         });
+
+        window.addEventListener('pointerup', (e) => {
+            this.handlePointerUp(e);
+        });
+
+        window.addEventListener('pointercancel', (e) => {
+            this.handlePointerUp(e);
+        });
+    }
+
+    handlePointerDown(e) {
+        if (!this.state.isPlaying) return;
+
+        const rect = this.elements.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const laneWidth = rect.width / CONFIG.NOTES.LANES;
+        const lane = Math.floor(x / laneWidth);
+
+        if (lane >= 0 && lane < CONFIG.NOTES.LANES) {
+            this.state.lanePointerMap[e.pointerId] = lane;
+            this.triggerLaneDown(lane);
+            this.elements.touchZones[lane]?.classList.add('active');
+
+            // Pointer Capture to track movements outside canvas
+            this.elements.canvas.setPointerCapture(e.pointerId);
+        }
+    }
+
+    handlePointerUp(e) {
+        if (this.state.lanePointerMap[e.pointerId] !== undefined) {
+            const lane = this.state.lanePointerMap[e.pointerId];
+            this.triggerLaneUp(lane);
+            this.elements.touchZones[lane]?.classList.remove('active');
+            delete this.state.lanePointerMap[e.pointerId];
+        }
     }
 
     triggerLaneDown(lane) {
