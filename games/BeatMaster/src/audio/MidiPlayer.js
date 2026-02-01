@@ -131,7 +131,19 @@ export class MidiPlayer {
         if (this.sequencer) {
             this.sequencer.pause();
             this.sequencer.currentTime = 0;
-            this.synth.stopAllNotes(); // 모든 소리 즉시 중단
+
+            // stopAllNotes()가 존재하지 않을 경우를 대비하여 직접 모든 채널에 All Notes Off 송신
+            if (this.synth) {
+                if (typeof this.synth.stopAllNotes === 'function') {
+                    this.synth.stopAllNotes();
+                } else {
+                    // MIDI 표준: 16개 모든 채널에 All Notes Off (123) 및 All Sound Off (120) 송신
+                    for (let i = 0; i < 16; i++) {
+                        this.synth.controllerChange(i, 123, 0); // All Notes Off
+                        this.synth.controllerChange(i, 120, 0); // All Sound Off
+                    }
+                }
+            }
         }
     }
 
