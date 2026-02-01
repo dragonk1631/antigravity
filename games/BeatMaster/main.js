@@ -32,16 +32,25 @@ class GameEngine {
             difficulty: CONFIG.NOTES.DIFFICULTY.DEFAULT,
             particles: [],
             gameplayChannels: [],
-            lanePointerMap: {},
-            lastHitTime: 0, // [New] for global hit flash
-            laneHitFlash: [0, 0, 0, 0] // [New] Per-lane hit flash timer
+            laneHitFlash: [0, 0, 0, 0],
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+            lastUIUpdate: { score: -1, combo: -1, time: "" }
         };
 
         this.cache = {
             laneWidth: 0,
             hitLineY: 0,
-            pixelsPerMs: 0
+            pixelsPerMs: 0,
+            laneGradients: [],
+            beamGradients: [],
+            particlePool: [],
+            activeParticles: []
         };
+
+        // Initialize particle pool (reuse objects to reduce GC)
+        for (let i = 0; i < 200; i++) {
+            this.cache.particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, color: "" });
+        }
 
         this.elements = {
             overlay: document.getElementById('overlay'),
@@ -589,15 +598,28 @@ class GameEngine {
         const progress = (current / duration) * 100;
         this.elements.progressBar.style.width = `${progress}%`;
 
-        const fmt = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-        this.elements.timeDisplay.innerText = `${fmt(current)} / ${fmt(duration)}`;
+        const timeStr = `${fmt(current)} / ${fmt(duration)}`;
+        if (this.state.lastUIUpdate.time !== timeStr) {
+            this.elements.timeDisplay.innerText = timeStr;
+            this.state.lastUIUpdate.time = timeStr;
+        }
+
+        if (this.state.lastUIUpdate.score !== this.state.score) {
+            this.elements.scoreEl.innerText = this.state.score.toString().padStart(6, '0');
+            this.state.lastUIUpdate.score = this.state.score;
+        }
+
+        if (this.state.lastUIUpdate.combo !== this.state.combo) {
+            this.elements.comboEl.innerText = this.state.combo > 0 ? `${this.state.combo} COMBO` : "";
+            this.state.lastUIUpdate.combo = this.state.combo;
+        }
     }
 
     render() {
         if (!this.player) return;
         this.ctx.clearRect(0, 0, this.state.canvasWidth, this.state.canvasHeight);
 
-        const { laneWidth, hitLineY, pixelsPerMs, laneColors } = this.cache;
+        const { laneWidth, hitLineY, pixelsPerMs, laneColors, laneGradients, beamGradients } = this.cache;
 
         // Lane lines & Active feedback
         for (let i = 0; i < CONFIG.NOTES.LANES; i++) {
@@ -606,18 +628,15 @@ class GameEngine {
             // Draw lane background if active or key pressed
             if (this.state.laneActive[i] > 0 || this.state.keyPressed[i]) {
                 const opacity = this.state.keyPressed[i] ? 1.0 : (this.state.laneActive[i] / 200);
-                const color = laneColors[i];
-                const gradient = this.ctx.createLinearGradient(0, hitLineY, 0, 0);
-                gradient.addColorStop(0, `${color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`);
-                gradient.addColorStop(1, 'transparent');
-
-                this.ctx.fillStyle = gradient;
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = laneGradients[i];
                 this.ctx.fillRect(x, 0, laneWidth, hitLineY);
             }
 
             // Lane Divider
             if (i > 0) {
                 this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                this.ctx.lineWidth = 1;
                 this.ctx.beginPath();
                 this.ctx.moveTo(x, 0);
                 this.ctx.lineTo(x, this.state.canvasHeight);
@@ -627,20 +646,15 @@ class GameEngine {
             // [New] Lane Hit Flash (Satisfying hit feedback)
             if (this.state.laneHitFlash[i] > 0) {
                 const opacity = this.state.laneHitFlash[i] / 150;
-
-                // Vertical Light Beam (Guilty Gear style)
-                const beamGrad = this.ctx.createLinearGradient(0, hitLineY, 0, 0);
-                beamGrad.addColorStop(0, `${laneColors[i]}${Math.floor(opacity * 200).toString(16).padStart(2, '0')}`);
-                beamGrad.addColorStop(0.5, `${laneColors[i]}${Math.floor(opacity * 50).toString(16).padStart(2, '0')}`);
-                beamGrad.addColorStop(1, 'transparent');
-
-                this.ctx.fillStyle = beamGrad;
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = beamGradients[i];
                 this.ctx.fillRect(x + 5, 0, laneWidth - 10, hitLineY);
 
                 // Core bright beam
-                this.ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
+                this.ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
                 this.ctx.fillRect(x + laneWidth / 2 - 2, 0, 4, hitLineY);
             }
+            this.ctx.globalAlpha = 1.0;
         }
 
         // Side Rails (Gold/Metallic)
@@ -765,59 +779,99 @@ class GameEngine {
         this.ctx.moveTo(0, hitLineY);
         this.ctx.lineTo(this.state.canvasWidth, hitLineY);
         this.ctx.stroke();
-        this.ctx.shadowBlur = 15;
-        this.ctx.shadowColor = 'var(--primary)';
-        this.ctx.stroke();
-        this.ctx.shadowBlur = 0;
+
+        // Skip expensive shadows on mobile
+        if (!this.state.isMobile) {
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = 'var(--primary)';
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+        }
 
         // Particles
-        this.state.particles.forEach(p => {
+        const isMobile = this.state.isMobile;
+        this.cache.activeParticles.forEach(p => {
             this.ctx.globalAlpha = p.life;
             this.ctx.fillStyle = p.color;
-            this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
-            this.ctx.fill();
+            if (isMobile) {
+                // Square particles are faster to render than arcs
+                const s = 4 * p.life;
+                this.ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+            } else {
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
         });
         this.ctx.globalAlpha = 1.0;
     }
 
     resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.0); // Cap at 2.0 for performance
         this.state.canvasWidth = this.elements.canvas.clientWidth;
         this.state.canvasHeight = this.elements.canvas.clientHeight;
-        this.elements.canvas.width = this.state.canvasWidth;
-        this.elements.canvas.height = this.state.canvasHeight;
+
+        this.elements.canvas.width = this.state.canvasWidth * dpr;
+        this.elements.canvas.height = this.state.canvasHeight * dpr;
+        this.ctx.scale(dpr, dpr);
 
         this.cache.laneWidth = this.state.canvasWidth / CONFIG.NOTES.LANES;
         this.cache.hitLineY = this.state.canvasHeight - 50;
         this.cache.pixelsPerMs = (CONFIG.NOTES.SCROLL_SPEED / 10) * 2;
         this.cache.laneColors = [0, 1, 2, 3].map(i => CONFIG.VISUAL.COLORS[`LANE_${i}`]);
+
+        // [Optimization] Cache Gradients
+        this.cache.laneGradients = this.cache.laneColors.map(color => {
+            const grad = this.ctx.createLinearGradient(0, this.cache.hitLineY, 0, 0);
+            grad.addColorStop(0, color);
+            grad.addColorStop(1, 'transparent');
+            return grad;
+        });
+
+        this.cache.beamGradients = this.cache.laneColors.map(color => {
+            const grad = this.ctx.createLinearGradient(0, this.cache.hitLineY, 0, 0);
+            grad.addColorStop(0, color);
+            grad.addColorStop(0.5, `${color}44`);
+            grad.addColorStop(1, 'transparent');
+            return grad;
+        });
     }
 
     createParticles(lane) {
         const x = lane * this.cache.laneWidth + this.cache.laneWidth / 2;
         const y = this.cache.hitLineY;
         const color = this.cache.laneColors[lane];
+        const count = this.state.isMobile ? 6 : 12;
 
-        for (let i = 0; i < 12; i++) { // Increased count
-            this.state.particles.push({
-                x, y,
-                vx: (Math.random() - 0.5) * 15, // More velocity
-                vy: (Math.random() - 0.5) * 15 - 8,
-                life: 1.0,
-                decay: 0.02 + Math.random() * 0.03,
-                color
-            });
+        for (let i = 0; i < count; i++) {
+            // Pick from pool
+            const p = this.cache.particlePool.find(obj => obj.life <= 0);
+            if (p) {
+                p.x = x;
+                p.y = y;
+                p.vx = (Math.random() - 0.5) * 15;
+                p.vy = (Math.random() - 0.5) * 15 - 8;
+                p.life = 1.0;
+                p.decay = 0.02 + Math.random() * 0.03;
+                p.color = color;
+                if (!this.cache.activeParticles.includes(p)) {
+                    this.cache.activeParticles.push(p);
+                }
+            }
         }
     }
 
     updateParticles(delta) {
-        for (let i = this.state.particles.length - 1; i >= 0; i--) {
-            const p = this.state.particles[i];
+        const active = this.cache.activeParticles;
+        for (let i = active.length - 1; i >= 0; i--) {
+            const p = active[i];
             p.x += p.vx;
             p.y += p.vy;
-            p.vy += 0.4; // More gravity for "snap"
+            p.vy += 0.4;
             p.life -= p.decay * (delta / 16);
-            if (p.life <= 0) this.state.particles.splice(i, 1);
+            if (p.life <= 0) {
+                active.splice(i, 1);
+            }
         }
     }
 }
