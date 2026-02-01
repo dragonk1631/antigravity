@@ -31,7 +31,8 @@ class GameEngine {
             nextLaneNoteIndices: [0, 0, 0, 0],
             difficulty: CONFIG.NOTES.DIFFICULTY.DEFAULT,
             particles: [],
-            gameplayChannels: []
+            gameplayChannels: [],
+            lanePointerMap: {} // [Fix] pointerID -> lane mapping for multi-touch
         };
 
         this.cache = {
@@ -165,27 +166,35 @@ class GameEngine {
 
             zone.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
-                zone.releasePointerCapture(e.pointerId); // 멀티터치 간섭 방지
+                // Capture the pointer to this element so we get pointerup even if the finger moves away
+                zone.setPointerCapture(e.pointerId);
+
+                // Track which lane this pointer is interacting with
+                this.state.lanePointerMap[e.pointerId] = lane;
+
                 this.triggerLaneDown(lane);
                 zone.classList.add('active');
             });
 
             zone.addEventListener('pointerup', (e) => {
                 e.preventDefault();
-                this.triggerLaneUp(lane);
-                zone.classList.remove('active');
-            });
-
-            zone.addEventListener('pointerleave', (e) => {
-                e.preventDefault();
-                this.triggerLaneUp(lane);
-                zone.classList.remove('active');
+                // Check if this pointer was the one that started the touch on this lane (or any lane)
+                if (this.state.lanePointerMap[e.pointerId] !== undefined) {
+                    const trackedLane = this.state.lanePointerMap[e.pointerId];
+                    this.triggerLaneUp(trackedLane);
+                    this.elements.touchZones[trackedLane]?.classList.remove('active');
+                    delete this.state.lanePointerMap[e.pointerId];
+                }
             });
 
             zone.addEventListener('pointercancel', (e) => {
                 e.preventDefault();
-                this.triggerLaneUp(lane);
-                zone.classList.remove('active');
+                if (this.state.lanePointerMap[e.pointerId] !== undefined) {
+                    const trackedLane = this.state.lanePointerMap[e.pointerId];
+                    this.triggerLaneUp(trackedLane);
+                    this.elements.touchZones[trackedLane]?.classList.remove('active');
+                    delete this.state.lanePointerMap[e.pointerId];
+                }
             });
         });
     }

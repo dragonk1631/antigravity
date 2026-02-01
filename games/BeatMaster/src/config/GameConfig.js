@@ -9,7 +9,7 @@ export const CONFIG = {
         LEAD_IN: 2.0, // 곡 시작 전 노트가 떨어지는 유예 시간 (초)
     },
     NOTES: {
-        SCROLL_SPEED: 3.0,
+        SCROLL_SPEED: 4.0,
         JUDGMENT: {
             PERFECT: 0.080, // ±80ms
             GOOD: 0.160,    // ±160ms (약간 더 엄격하게 조정하여 긴장감 유지)

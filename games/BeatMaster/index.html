@@ -65,13 +65,25 @@
         <!-- Game Interface -->
         <main id="game-container">
             <div id="hud">
-                <div class="score-container">
-                    <span class="label">SCORE</span>
-                    <span id="score">000000</span>
+                <div class="hud-top">
+                    <div class="score-container">
+                        <span class="label">SCORE</span>
+                        <span id="score">000000</span>
+                    </div>
+                    <div class="hud-controls">
+                        <button id="pause-btn" class="icon-btn">II</button>
+                        <button id="fullscreen-btn" class="icon-btn">FS</button>
+                    </div>
+                    <div class="combo-container">
+                        <span id="combo">0</span>
+                        <span class="label">COMBO</span>
+                    </div>
                 </div>
-                <div class="combo-container">
-                    <span id="combo">0</span>
-                    <span class="label">COMBO</span>
+                <div class="hud-bottom">
+                    <div class="progress-bar-bg">
+                        <div id="progress-bar-fill"></div>
+                    </div>
+                    <span id="time-display">00:00 / 00:00</span>
                 </div>
             </div>
 
@@ -99,14 +111,6 @@
                 </div>
             </div>
 
-            <div id="action-bar">
-                <button id="pause-btn" class="icon-btn">II</button>
-                <div class="progress-bar-bg">
-                    <div id="progress-bar-fill"></div>
-                </div>
-                <span id="time-display">00:00 / 00:00</span>
-                <button id="fullscreen-btn" class="icon-btn">FS</button>
-            </div>
         </main>
 
         <!-- Debug Console -->
