@@ -485,7 +485,7 @@ class GameEngine {
         this.elements.overlay.classList.remove('visible');
 
         if (this.player) {
-            this.player.start();
+            this.player.play();
         }
 
         this.state.startTime = performance.now();
