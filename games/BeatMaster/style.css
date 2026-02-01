@@ -543,18 +543,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* Shapes removed in favor of characters */
 
 .touch-zone[data-lane="0"] .arcade-icon {
-    color: #FF4081;
-    border-color: rgba(255, 64, 129, 0.4);
+    color: #FF66B2;
+    /* Hwasa-han Pink */
+    border-color: rgba(255, 102, 178, 0.4);
 }
 
 .touch-zone[data-lane="1"] .arcade-icon {
-    color: #00f2ff;
-    border-color: rgba(0, 242, 255, 0.4);
+    color: #ffcc00;
+    /* Yellow (Swapped from 2) */
+    border-color: rgba(255, 204, 0, 0.4);
 }
 
 .touch-zone[data-lane="2"] .arcade-icon {
-    color: #ffcc00;
-    border-color: rgba(255, 204, 0, 0.4);
+    color: #00f2ff;
+    /* Cyan (Swapped from 1) */
+    border-color: rgba(0, 242, 255, 0.4);
 }
 
 .touch-zone[data-lane="3"] .arcade-icon {

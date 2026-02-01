@@ -36,10 +36,10 @@ export const CONFIG = {
     },
     VISUAL: {
         COLORS: {
-            LANE_0: '#FF4081', // Kick (Vibrant Pink)
-            LANE_1: '#ccff00', // Snare
-            LANE_2: '#00ff66', // Clap (3rd Lane)
-            LANE_3: '#00f2ff'  // Hat
+            LANE_0: '#FF66B2', // Hwasa-han Pink
+            LANE_1: '#ffcc00', // Yellow (Swapped)
+            LANE_2: '#00f2ff', // Cyan (Swapped)
+            LANE_3: '#00ff66'  // Green
         }
     }
 };
