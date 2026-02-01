@@ -21,7 +21,11 @@ body {
     font-family: var(--font-main);
     overflow: hidden;
     height: 100vh;
+    height: 100dvh;
+    /* Dynamic Viewport Height */
     width: 100vw;
+    position: fixed;
+    /* Prevent scrolling on iOS */
 }
 
 #app {
@@ -292,6 +296,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     #game-container {
         max-width: 100%;
         border: none;
+        height: 100%;
     }
 }
 
@@ -340,11 +345,22 @@ input[type="range"]::-webkit-slider-thumb:hover {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     height: 160px;
+    min-height: 120px;
     /* 터치 영역 지분 확대 */
     border-top: 2px solid var(--primary);
     background: rgba(255, 0, 122, 0.05);
     user-select: none;
     -webkit-user-select: none;
+}
+
+@media (max-height: 700px) {
+    #touch-zones {
+        height: 120px;
+    }
+
+    .lane-label {
+        font-size: 0.65rem;
+    }
 }
 
 .touch-zone {

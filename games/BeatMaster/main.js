@@ -68,6 +68,9 @@ class GameEngine {
     async init() {
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.resize(), 300); // Give it time to settle
+        });
         this.bindEvents();
 
         // 내장 곡 로드
@@ -321,7 +324,9 @@ class GameEngine {
         await this.loadMidiIntoPlayer();
 
         this.elements.overlay.classList.add('hidden');
-        this.resize(); // [Fix] Ensure canvas size is correct after unhiding
+
+        // [Fix] 모바일 브라우저 주소창 변화 대응을 위해 약간의 지연 후 리사이즈
+        setTimeout(() => this.resize(), 100);
 
         // 3초 카운트다운 연출
         await this.runCountdown();
