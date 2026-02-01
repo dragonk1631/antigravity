@@ -17,15 +17,25 @@
 
 body {
     background-color: var(--bg-dark);
+    background-image: url('assets/bg_art.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     color: white;
     font-family: var(--font-main);
     overflow: hidden;
     height: 100vh;
     height: 100dvh;
-    /* Dynamic Viewport Height */
     width: 100vw;
     position: fixed;
-    /* Prevent scrolling on iOS */
+}
+
+body::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: -1;
 }
 
 #app {
@@ -285,9 +295,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
     height: 100%;
     max-width: 600px;
     margin: 0 auto;
-    background: linear-gradient(to bottom, #11111a, #0a0a12);
-    border-left: 1px solid var(--glass-border);
-    border-right: 1px solid var(--glass-border);
+    background: rgba(10, 10, 18, 0.85);
+    /* Semi-transparent like Guilty Gear */
+    border-left: 3px solid rgba(255, 180, 0, 0.5);
+    /* Gold rail shadow */
+    border-right: 3px solid rgba(255, 180, 0, 0.5);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
     display: flex;
     flex-direction: column;
 }
@@ -301,12 +314,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 #hud {
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    z-index: 10;
-    background: rgba(0, 0, 0, 0.4);
+    display: none !important;
 }
 
 .hud-top {
@@ -341,34 +349,39 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 #score {
     font-family: monospace;
-    font-size: 2rem;
+    font-size: 1.5rem;
+    /* Slightly smaller for compact HUD */
     color: var(--accent);
     text-shadow: 0 0 10px var(--accent);
 }
 
 #combo {
-    font-size: 2.5rem;
+    font-size: 2rem;
+    /* Slightly smaller */
     font-weight: 800;
     line-height: 1;
 }
 
 #game-canvas {
-    flex: 1;
+    height: 67%;
+    /* Occupy roughly 70% with HUD */
     width: 100%;
     touch-action: none;
+    position: relative;
 }
 
 /* Touch Zones & Labels */
 #touch-zones {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    height: 35%;
-    /* touch area bit larger */
-    min-height: 200px;
-    border-top: 2px solid var(--primary);
-    background: rgba(255, 0, 122, 0.05);
+    height: 25%;
+    border-top: 6px double rgba(255, 180, 0, 0.8);
+    /* Metallic Rail */
+    box-shadow: 0 -10px 40px rgba(255, 0, 122, 0.4);
+    background: linear-gradient(to bottom, rgba(20, 20, 30, 0.95), rgba(10, 10, 15, 1));
     user-select: none;
     -webkit-user-select: none;
+    z-index: 5;
 }
 
 @media (max-height: 600px) {
@@ -385,46 +398,106 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .touch-zone {
     position: relative;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-    cursor: pointer;
-    overflow: hidden;
-}
 
-.touch-zone:last-child {
-    border-right: none;
-}
+    .touch-zone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0.8rem;
+        cursor: pointer;
+        transition: all 0.1s;
+    }
 
-.lane-label {
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--primary);
-    opacity: 0.8;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    pointer-events: none;
-    z-index: 2;
-}
+    .arcade-btn {
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+    }
 
-.lane-label span {
-    font-size: 0.6rem;
-    color: white;
-    opacity: 0.5;
-}
+    .arcade-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1);
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+    }
 
-/* 터치 시 화려한 효과 */
-.touch-zone.active {
-    background: rgba(255, 0, 122, 0.2);
-}
+    .arcade-icon::before {
+        content: '';
+        width: 24px;
+        height: 24px;
+        border: 2px solid currentColor;
+    }
 
-.touch-effect {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, var(--primary), transparent);
+    .kick::before {
+        border-radius: 50%;
+    }
+
+    .snare::before {
+        transform: rotate(45deg);
+    }
+
+    .hihat::before {
+        clip-path: polygon(50% 0, 100% 100%, 0 100%);
+        width: 28px;
+        height: 24px;
+        border: none;
+        background: currentColor;
+    }
+
+    .crash::before {
+        content: '×';
+        border: none;
+        font-size: 40px;
+        line-height: 1;
+        margin-top: -5px;
+    }
+
+    .touch-zone[data-lane="0"] .arcade-icon {
+        color: #ff007a;
+        border-color: rgba(255, 0, 122, 0.4);
+    }
+
+    .touch-zone[data-lane="1"] .arcade-icon {
+        color: #00f2ff;
+        border-color: rgba(0, 242, 255, 0.4);
+    }
+
+    .touch-zone[data-lane="2"] .arcade-icon {
+        color: #ffcc00;
+        border-color: rgba(255, 204, 0, 0.4);
+    }
+
+    .touch-zone[data-lane="3"] .arcade-icon {
+        color: #00ff66;
+        border-color: rgba(0, 255, 102, 0.4);
+    }
+
+    .touch-zone.active .arcade-icon {
+        transform: scale(0.9) translateY(4px);
+        box-shadow: 0 0 30px currentColor;
+        border-color: currentColor;
+        background: currentColor;
+    }
+
+    .lane-label {
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+    }
+
+    .touch-zone.active .lane-label {
+        color: white;
+        text-shadow: 0 0 10px white;
+    }
+
     opacity: 0;
     transition: opacity 0.1s;
     pointer-events: none;
@@ -449,17 +522,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 #judgment-display {
     position: absolute;
-    top: 50%;
+    top: 40%;
+    /* Move up slightly to not be covered by fingers */
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 3rem;
+    font-size: 3.5rem;
+    /* Larger */
     font-weight: 900;
     pointer-events: none;
     z-index: 100;
-    text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 10px currentColor;
+    /* More glow */
     opacity: 0;
     text-transform: uppercase;
     font-style: italic;
+    letter-spacing: 2px;
 }
 
 @keyframes hit {

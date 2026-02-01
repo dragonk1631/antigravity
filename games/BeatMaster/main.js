@@ -32,7 +32,9 @@ class GameEngine {
             difficulty: CONFIG.NOTES.DIFFICULTY.DEFAULT,
             particles: [],
             gameplayChannels: [],
-            lanePointerMap: {} // [Fix] pointerID -> lane mapping for multi-touch
+            lanePointerMap: {},
+            lastHitTime: 0, // [New] for global hit flash
+            laneHitFlash: [0, 0, 0, 0] // [New] Per-lane hit flash timer
         };
 
         this.cache = {
@@ -202,9 +204,8 @@ class GameEngine {
     triggerLaneDown(lane) {
         if (!this.state.isPlaying) return;
         this.state.keyPressed[lane] = true;
-        this.state.laneActive[lane] = 200;
-        // [요청 반영] 드럼 소리 제거
-        // this.player.playNote(lane); 
+        // Don't set laneActive here, let checkHit handle it for "successful" hits
+        // this.state.laneActive[lane] = 200; 
         this.checkHit(lane);
     }
 
@@ -410,6 +411,9 @@ class GameEngine {
                 if (diff <= windowSize) {
                     note.hit = true;
                     this.createParticles(lane);
+                    this.state.laneHitFlash[lane] = 150; // Flash for 150ms
+                    this.state.lastHitTime = performance.now();
+
                     const judgment = this.getJudgment(diff / 1000);
                     this.applyJudgment(judgment);
 
@@ -563,9 +567,10 @@ class GameEngine {
         this.render();
         this.updateUI();
 
-        // Update lane feedback timers & particles
+        // Update timers
         const delta = this._lastTimestamp ? (timestamp - this._lastTimestamp) : 0;
         this.state.laneActive = this.state.laneActive.map(t => Math.max(0, t - delta));
+        this.state.laneHitFlash = this.state.laneHitFlash.map(t => Math.max(0, t - delta));
         this.updateParticles(delta);
         this._lastTimestamp = timestamp;
 
@@ -607,15 +612,83 @@ class GameEngine {
 
             // Lane Divider
             if (i > 0) {
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
                 this.ctx.beginPath();
                 this.ctx.moveTo(x, 0);
                 this.ctx.lineTo(x, this.state.canvasHeight);
                 this.ctx.stroke();
             }
+
+            // [New] Lane Hit Flash (Satisfying hit feedback)
+            if (this.state.laneHitFlash[i] > 0) {
+                const opacity = this.state.laneHitFlash[i] / 150;
+
+                // Vertical Light Beam (Guilty Gear style)
+                const beamGrad = this.ctx.createLinearGradient(0, hitLineY, 0, 0);
+                beamGrad.addColorStop(0, `${laneColors[i]}${Math.floor(opacity * 200).toString(16).padStart(2, '0')}`);
+                beamGrad.addColorStop(0.5, `${laneColors[i]}${Math.floor(opacity * 50).toString(16).padStart(2, '0')}`);
+                beamGrad.addColorStop(1, 'transparent');
+
+                this.ctx.fillStyle = beamGrad;
+                this.ctx.fillRect(x + 5, 0, laneWidth - 10, hitLineY);
+
+                // Core bright beam
+                this.ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
+                this.ctx.fillRect(x + laneWidth / 2 - 2, 0, 4, hitLineY);
+            }
         }
 
-        // Notes Rendering Optimization
+        // Side Rails (Gold/Metallic)
+        this.ctx.strokeStyle = 'rgba(255, 180, 0, 0.8)';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.moveTo(2, 0);
+        this.ctx.lineTo(2, this.state.canvasHeight);
+        this.ctx.moveTo(this.state.canvasWidth - 2, 0);
+        this.ctx.lineTo(this.state.canvasWidth - 2, this.state.canvasHeight);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = 'rgba(255, 180, 0, 1)';
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+
+        // [New] Guilty Gear Style HUD (Rendered on Canvas)
+        const hudY = 70;
+        this.ctx.font = '900 42px "Outfit"';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+
+        // Large background shadow for score
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2 + 2, hudY + 2);
+
+        this.ctx.fillStyle = '#fff';
+        this.ctx.shadowBlur = 15;
+        this.ctx.shadowColor = 'var(--accent)';
+        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2, hudY);
+        this.ctx.shadowBlur = 0;
+
+        if (this.state.combo > 0) {
+            const comboY = 150;
+            this.ctx.font = '700 16px "Outfit"';
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            this.ctx.fillText('COMBO', this.state.canvasWidth / 2, comboY - 45);
+
+            const comboColor = this.state.combo >= 100 ? '#ffea00' : 'var(--accent)';
+            this.ctx.font = '900 72px "Outfit"';
+            this.ctx.fillStyle = comboColor;
+            this.ctx.shadowBlur = 25;
+            this.ctx.shadowColor = comboColor;
+            this.ctx.fillText(this.state.combo, this.state.canvasWidth / 2, comboY);
+
+            // Subtle "Combo" underline like in Guilty Gear
+            this.ctx.fillStyle = comboColor;
+            this.ctx.globalAlpha = 0.5;
+            this.ctx.fillRect(this.state.canvasWidth / 2 - 40, comboY + 20, 80, 4);
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.shadowBlur = 0;
+        }
+
         const timeWindow = this.state.canvasHeight / pixelsPerMs;
         const startTime = this.state.currentTime - 100;
         const endTime = this.state.currentTime + timeWindow + 100;
@@ -676,9 +749,21 @@ class GameEngine {
             this.ctx.shadowBlur = 0;
         }
 
-        // Hit line
-        this.ctx.fillStyle = 'rgba(255, 0, 122, 0.2)';
-        this.ctx.fillRect(0, hitLineY - 5, this.state.canvasWidth, 10);
+        // [Enhanced] Hit line visibility
+        const hitFlash = Math.max(0, (200 - (performance.now() - this.state.lastHitTime)) / 200);
+        this.ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + hitFlash * 0.4})`;
+        this.ctx.fillRect(0, hitLineY - 3 - hitFlash * 5, this.state.canvasWidth, 6 + hitFlash * 10);
+
+        this.ctx.strokeStyle = 'var(--primary)';
+        this.ctx.lineWidth = 2 + hitFlash * 3;
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, hitLineY);
+        this.ctx.lineTo(this.state.canvasWidth, hitLineY);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 15;
+        this.ctx.shadowColor = 'var(--primary)';
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
 
         // Particles
         this.state.particles.forEach(p => {
@@ -708,12 +793,13 @@ class GameEngine {
         const y = this.cache.hitLineY;
         const color = this.cache.laneColors[lane];
 
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 12; i++) { // Increased count
             this.state.particles.push({
                 x, y,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10 - 5,
+                vx: (Math.random() - 0.5) * 15, // More velocity
+                vy: (Math.random() - 0.5) * 15 - 8,
                 life: 1.0,
+                decay: 0.02 + Math.random() * 0.03,
                 color
             });
         }
@@ -724,8 +810,8 @@ class GameEngine {
             const p = this.state.particles[i];
             p.x += p.vx;
             p.y += p.vy;
-            p.vy += 0.2; // 중력
-            p.life -= delta / 500;
+            p.vy += 0.4; // More gravity for "snap"
+            p.life -= p.decay * (delta / 16);
             if (p.life <= 0) this.state.particles.splice(i, 1);
         }
     }
