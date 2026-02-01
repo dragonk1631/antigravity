@@ -24,20 +24,244 @@
     "url": "public/assets/midi/BublBobl_RK.mid"
   },
   {
+    "name": "🎹 Cammy s",
+    "url": "public/assets/midi/Cammy_s.mid"
+  },
+  {
+    "name": "🎹 ccoverworld2",
+    "url": "public/assets/midi/ccoverworld2.mid"
+  },
+  {
+    "name": "🎹 corazonazul ff6boss",
+    "url": "public/assets/midi/corazonazul_ff6boss.mid"
+  },
+  {
+    "name": "🎹 CV1- Vampire Killer",
+    "url": "public/assets/midi/CV1-_Vampire_Killer.mid"
+  },
+  {
+    "name": "🎹 cv5stg7c",
+    "url": "public/assets/midi/cv5stg7c.mid"
+  },
+  {
+    "name": "🎹 DanceofGold",
+    "url": "public/assets/midi/DanceofGold.mid"
+  },
+  {
+    "name": "🎹 DarkWoods",
+    "url": "public/assets/midi/DarkWoods.mid"
+  },
+  {
+    "name": "🎹 DOOM - Robert C. Prince - E1M1 - At Doom's Gate",
+    "url": "public/assets/midi/DOOM - Robert C. Prince - E1M1 - At Doom's Gate.mid"
+  },
+  {
+    "name": "🎹 dw3 bt1",
+    "url": "public/assets/midi/dw3_bt1.mid"
+  },
+  {
+    "name": "🎹 dw5 town",
+    "url": "public/assets/midi/dw5_town.mid"
+  },
+  {
+    "name": "🎹 ENIX - Dragon Warrior 3 ( Overworld BGM )",
+    "url": "public/assets/midi/ENIX_-_Dragon_Warrior_3_(_Overworld_BGM_).mid"
+  },
+  {
+    "name": "🎹 exryu",
+    "url": "public/assets/midi/exryu.mid"
+  },
+  {
+    "name": "🎹 fe3 main",
+    "url": "public/assets/midi/fe3_main.mid"
+  },
+  {
+    "name": "🎹 ff2bsbtl",
+    "url": "public/assets/midi/ff2bsbtl.mid"
+  },
+  {
+    "name": "🎹 FF6 The Fierce Battle Xg",
+    "url": "public/assets/midi/FF6_The_Fierce_Battle_Xg.mid"
+  },
+  {
+    "name": "🎹 ff6 zozo v2",
+    "url": "public/assets/midi/ff6_zozo_v2.mid"
+  },
+  {
+    "name": "🎹 fftactics-midi Chapel",
+    "url": "public/assets/midi/fftactics-midi_Chapel.mid"
+  },
+  {
+    "name": "🎹 fft 211",
+    "url": "public/assets/midi/fft_211.mid"
+  },
+  {
+    "name": "🎹 fft apoplexy",
+    "url": "public/assets/midi/fft_apoplexy.mid"
+  },
+  {
+    "name": "🎹 Fighting",
+    "url": "public/assets/midi/Fighting.mid"
+  },
+  {
     "name": "💀 gameover",
     "url": "public/assets/midi/gameover.mid"
+  },
+  {
+    "name": "🎹 GM05",
+    "url": "public/assets/midi/GM05.mid"
+  },
+  {
+    "name": "🎵 GokujyoParodius Stage1",
+    "url": "public/assets/midi/GokujyoParodius_Stage1.mid"
+  },
+  {
+    "name": "🎵 GokujyoParodius Stage2",
+    "url": "public/assets/midi/GokujyoParodius_Stage2.mid"
+  },
+  {
+    "name": "🎵 GokujyoParodius Stage4",
+    "url": "public/assets/midi/GokujyoParodius_Stage4.mid"
+  },
+  {
+    "name": "🎵 GokujyoParodius StageSpecial",
+    "url": "public/assets/midi/GokujyoParodius_StageSpecial.mid"
+  },
+  {
+    "name": "🎹 gtgm",
+    "url": "public/assets/midi/gtgm.mid"
+  },
+  {
+    "name": "🎹 Human1gm",
+    "url": "public/assets/midi/Human1gm.mid"
+  },
+  {
+    "name": "🎹 Human2gm",
+    "url": "public/assets/midi/Human2gm.mid"
+  },
+  {
+    "name": "🎹 HyruleCastlePunkRockRemix",
+    "url": "public/assets/midi/HyruleCastlePunkRockRemix.mid"
+  },
+  {
+    "name": "🎹 IoGtown",
+    "url": "public/assets/midi/IoGtown.mid"
+  },
+  {
+    "name": "🎹 kefka",
+    "url": "public/assets/midi/kefka.mid"
+  },
+  {
+    "name": "🎹 Ken2",
+    "url": "public/assets/midi/Ken2.mid"
   },
   {
     "name": "🎹 leaderboard",
     "url": "public/assets/midi/leaderboard.mid"
   },
   {
+    "name": "🎹 livealive-killingfield",
+    "url": "public/assets/midi/livealive-killingfield.mid"
+  },
+  {
     "name": "🎹 mainmenu",
     "url": "public/assets/midi/mainmenu.mid"
   },
   {
+    "name": "🎹 melodies of life",
+    "url": "public/assets/midi/melodies_of_life.mid"
+  },
+  {
+    "name": "🎹 olrox",
+    "url": "public/assets/midi/olrox.mid"
+  },
+  {
+    "name": "🎹 One-Winged Angel",
+    "url": "public/assets/midi/One-Winged_Angel.mid"
+  },
+  {
+    "name": "🎹 overworld",
+    "url": "public/assets/midi/overworld.mid"
+  },
+  {
+    "name": "🎹 Parodius - Twinbees Theme",
+    "url": "public/assets/midi/Parodius_-_Twinbees_Theme.mid"
+  },
+  {
+    "name": "🎹 Pirates of the Caribbean - He's a Pirate (1)",
+    "url": "public/assets/midi/Pirates of the Caribbean - He's a Pirate (1).mid"
+  },
+  {
+    "name": "🎹 PNTB l41",
+    "url": "public/assets/midi/PNTB_l41.mid"
+  },
+  {
+    "name": "🎹 popntwinbee-staffroll",
+    "url": "public/assets/midi/popntwinbee-staffroll.mid"
+  },
+  {
+    "name": "🎵 popntwinbee-stage3",
+    "url": "public/assets/midi/popntwinbee-stage3.mid"
+  },
+  {
+    "name": "🎵 popntwinbee-stage6",
+    "url": "public/assets/midi/popntwinbee-stage6.mid"
+  },
+  {
+    "name": "🎹 Rage Against the Machine - Killing in the Name Of",
+    "url": "public/assets/midi/Rage Against the Machine - Killing in the Name Of.mid"
+  },
+  {
+    "name": "🎹 requiem 02 [unknown]",
+    "url": "public/assets/midi/requiem_02_[unknown].mid"
+  },
+  {
+    "name": "🎹 ryusfa2mix",
+    "url": "public/assets/midi/ryusfa2mix.MID"
+  },
+  {
+    "name": "🎹 Save Them",
+    "url": "public/assets/midi/Save_Them.mid"
+  },
+  {
     "name": "⚙️ setting",
     "url": "public/assets/midi/setting.mid"
+  },
+  {
+    "name": "🎹 sfa2ken",
+    "url": "public/assets/midi/sfa2ken.mid"
+  },
+  {
+    "name": "🎹 sfa2saku",
+    "url": "public/assets/midi/sfa2saku.mid"
+  },
+  {
+    "name": "🎹 sfa2zang",
+    "url": "public/assets/midi/sfa2zang.mid"
+  },
+  {
+    "name": "🎹 SMWTHEME",
+    "url": "public/assets/midi/SMWTHEME.mid"
+  },
+  {
+    "name": "🎹 som maintheme",
+    "url": "public/assets/midi/som_maintheme.mid"
+  },
+  {
+    "name": "🎵 Stage00004",
+    "url": "public/assets/midi/Stage00004.mid"
+  },
+  {
+    "name": "🎵 Stage00007",
+    "url": "public/assets/midi/Stage00007.mid"
+  },
+  {
+    "name": "🎵 Stage00008",
+    "url": "public/assets/midi/Stage00008.mid"
+  },
+  {
+    "name": "🎵 Stage00009",
+    "url": "public/assets/midi/Stage00009.mid"
   },
   {
     "name": "🎵 stage01",
@@ -48,11 +272,119 @@
     "url": "public/assets/midi/stage02.mid"
   },
   {
+    "name": "🎹 Starcraft - Terran Theme 03 MIDI",
+    "url": "public/assets/midi/Starcraft - Terran Theme 03 MIDI.mid"
+  },
+  {
+    "name": "🎹 sti1",
+    "url": "public/assets/midi/sti1.mid"
+  },
+  {
+    "name": "🎹 Still More Fighting",
+    "url": "public/assets/midi/Still_More_Fighting.mid"
+  },
+  {
+    "name": "🎵 supertwinbeestage1",
+    "url": "public/assets/midi/supertwinbeestage1.mid"
+  },
+  {
+    "name": "🎹 super mario world pops remix",
+    "url": "public/assets/midi/super_mario_world_pops_remix.mid"
+  },
+  {
+    "name": "🎹 Terranigma - Terranigma - Underworld",
+    "url": "public/assets/midi/Terranigma_-_Terranigma_-_Underworld.mid"
+  },
+  {
+    "name": "🎹 teso 01",
+    "url": "public/assets/midi/teso_01.mid"
+  },
+  {
+    "name": "🎹 teso 02",
+    "url": "public/assets/midi/teso_02.mid"
+  },
+  {
+    "name": "🎹 Theme of Simon",
+    "url": "public/assets/midi/Theme_of_Simon.mid"
+  },
+  {
+    "name": "🎹 Trisection-1",
+    "url": "public/assets/midi/Trisection-1.mid"
+  },
+  {
     "name": "🎹 twinkle",
     "url": "public/assets/midi/twinkle.mid"
   },
   {
+    "name": "🎹 t ogre15",
+    "url": "public/assets/midi/t_ogre15.mid"
+  },
+  {
     "name": "🏆 victory",
     "url": "public/assets/midi/victory.mid"
+  },
+  {
+    "name": "🎹 Videogame Tune - Ghouls and Ghosts - Level 1",
+    "url": "public/assets/midi/Videogame_Tune_-_Ghouls_and_Ghosts_-_Level_1.mid"
+  },
+  {
+    "name": "🎹 VP BTL1",
+    "url": "public/assets/midi/VP_BTL1.mid"
+  },
+  {
+    "name": "🎹 waopen",
+    "url": "public/assets/midi/waopen.mid"
+  },
+  {
+    "name": "🎹 Wicked Child 1",
+    "url": "public/assets/midi/Wicked_Child_1.mid"
+  },
+  {
+    "name": "🎹 Wicked Child DMC",
+    "url": "public/assets/midi/Wicked_Child_DMC.mid"
+  },
+  {
+    "name": "🎹 wins1",
+    "url": "public/assets/midi/wins1.mid"
+  },
+  {
+    "name": "🎹 World1-1 Allstars",
+    "url": "public/assets/midi/World1-1_Allstars.mid"
+  },
+  {
+    "name": "🎹 z3boss",
+    "url": "public/assets/midi/z3boss.mid"
+  },
+  {
+    "name": "🎹 z3lightw",
+    "url": "public/assets/midi/z3lightw.mid"
+  },
+  {
+    "name": "🎹 Z3LightWorldDungeon RockRemix",
+    "url": "public/assets/midi/Z3LightWorldDungeon_RockRemix.mid"
+  },
+  {
+    "name": "🎹 zb smw rockroll2",
+    "url": "public/assets/midi/zb_smw_rockroll2.mid"
+  },
+  {
+    "name": "🎹 Zenkusa - PopnTwinbee Level2",
+    "url": "public/assets/midi/Zenkusa_-_PopnTwinbee_Level2.mid"
+  },
+  {
+    "name": "🎹 Zenkusa - PopnTwinbee Level5",
+    "url": "public/assets/midi/Zenkusa_-_PopnTwinbee_Level5.mid"
+  },
+  {
+    "name": "🎹 백조의호수",
+    "url": "public/assets/midi/백조의호수.mid"
+  },
+  {
+    "name": "🎹 에어울프",
+    "url": "public/assets/midi/에어울프.mid"
+  },
+  {
+    "name": "🎹 터키행진곡",
+    "url": "public/assets/midi/터키행진곡.mid"
   }
 ]
