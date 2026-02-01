@@ -367,7 +367,17 @@ class GameEngine {
             this.elements.startBtn.innerText = "START SESSION";
 
             const totalCount = gameData.allNotes.length;
-            this.debug.log(`곡 로드: ${totalCount}개 노트 [${this.state.difficulty}]`, 'success');
+
+            // [New] Calculate exact visual end time (max of time + duration)
+            const lastNote = gameData.allNotes[gameData.allNotes.length - 1]; // Sorted by time
+            this.state.lastNoteEndTime = 0;
+            if (lastNote) {
+                // Iterate all to be safe or rely on sort? MidiParser sorts by time.
+                // But length might vary. Let's effectively find max (time + duration).
+                this.state.lastNoteEndTime = gameData.allNotes.reduce((max, n) => Math.max(max, n.time + (n.duration || 0)), 0);
+            }
+
+            this.debug.log(`곡 로드: ${totalCount}개 노트 [${this.state.difficulty}]. EndTime: ${this.state.lastNoteEndTime}ms`, 'success');
             this.debug.log(`필터링 임계값: ${CONFIG.NOTES.DIFFICULTY.THRESHOLD[this.state.difficulty]}`, 'info');
             console.log("[GameEngine] MIDI Loaded:", gameData);
         } catch (e) {
@@ -785,8 +795,12 @@ class GameEngine {
         }
 
         // Auto-show results when finished
-        if (this.player && this.player.currentTime >= this.player.duration - 0.1 && this.state.isPlaying) {
+        // [Fix] Trigger 2 seconds AFTER the last note/long-note ends
+        const gameEndTime = this.state.lastNoteEndTime + 2000;
+
+        if (this.state.isPlaying && this.state.currentTime >= gameEndTime) {
             this.state.isPlaying = false;
+            this.player.stop(); // Stop audio if it's still playing
             this.finishGameSequence();
         }
     }
