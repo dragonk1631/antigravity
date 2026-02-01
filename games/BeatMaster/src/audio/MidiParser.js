@@ -1,7 +1,11 @@
 /**
- * MidiParser - All-Track Layered Fill Mode + Full Audio
+ * MidiParser - All-Track Layered Fill Mode + Full Audio + Difficulty Support
  * 우선순위 기반 전체 트랙 계층형 노트 생성 (Main -> Sub1 -> ... -> Sub N)
  * 배경음: 모든 트랙 재생 (드럼 포함)
+ * 난이도별 로직:
+ * - EASY: GapBuffer 600ms, MinInterval 250ms (연타 방지)
+ * - NORMAL: GapBuffer 100ms
+ * - HARD: GapBuffer 50ms
  */
 
 import { CONFIG } from '../config/GameConfig.js';
@@ -34,7 +38,31 @@ export class MidiParser {
     }
 
     analyze(midi, difficulty = 'NORMAL', originalBuffer) {
-        console.log("%c[MidiParser] 🚀 Executing ALL-TRACK LAYERED FILL Mode + Full Audio", "color: #ff00ff; font-weight: bold; font-size: 14px;");
+        // 난이도별 파라미터 설정
+        let gapBuffer = 100; // 기본(NORMAL)
+        let maxTracks = 0;   // 0 = 무제한
+        let minInterval = 0; // 연타 방지 최소 간격 (ms)
+
+        switch (difficulty) {
+            case 'EASY':
+                console.log("%c[MidiParser] 🚀 Executing MODE: EASY (Very Chill)", "color: #00ff00; font-weight: bold; font-size: 14px;");
+                gapBuffer = 1000; // 1.0초 이상 빈 공간만 채움
+                maxTracks = 0;   // 모든 트랙 허용
+                minInterval = 500; // 0.5초 미만 연타 제거 (매우 여유로운 간격)
+                break;
+            case 'HARD':
+                console.log("%c[MidiParser] 🚀 Executing MODE: HARD (Density High)", "color: #ff0000; font-weight: bold; font-size: 14px;");
+                gapBuffer = 50;  // 거의 모든 틈 채움
+                maxTracks = 0;   // 무제한
+                minInterval = 50; // 제한 거의 없음
+                break;
+            default: // NORMAL
+                console.log("%c[MidiParser] 🚀 Executing MODE: NORMAL (Standard)", "color: #00ffff; font-weight: bold; font-size: 14px;");
+                gapBuffer = 100; // 적당한 밀도
+                maxTracks = 0;   // 무제한
+                minInterval = 100; // 적당한 간격 유지
+                break;
+        }
 
         // 1. 트랙 점수 산정 (Scoring)
         const candidates = [];
@@ -66,18 +94,18 @@ export class MidiParser {
         });
         console.groupEnd();
 
-        // 점수순 정렬 (상위 트랙부터 빈 공간 채우기 시도)
+        // 점수순 정렬
         candidates.sort((a, b) => b.score - a.score);
 
-        // 제한 없이 모든 유효 트랙 사용
-        const selectedTracks = candidates;
+        // 난이도별 트랙 개수 제한 적용
+        const selectedTracks = maxTracks > 0 ? candidates.slice(0, maxTracks) : candidates;
 
         if (selectedTracks.length === 0) {
             console.error("No playable tracks found.");
             return { duration: midi.duration, bpm: 120, allNotes: [], gameplayChannels: [], backgroundMidi: null };
         }
 
-        console.log(`[Layered Fill] Selected Priority Tracks (All):`, selectedTracks.map(t => t.idx));
+        console.log(`[Layered Fill] Selected Priority Tracks:`, selectedTracks.map(t => t.idx));
 
         // 2. 노트 추출 및 변환 함수
         const parseNotes = (trackObj, priority) => {
@@ -93,11 +121,8 @@ export class MidiParser {
         };
 
         // 3. 계층적 병합 (Layered Merge)
-        // Priority 0 -> 1 -> ... -> N 순서로 빈 공간 채우기
         let mergedNotes = [];
-
-        // 시간 충돌 방지 버퍼 (ms) - 너무 빽빽하지 않게 간격 유지
-        const GAP_BUFFER = 100;
+        const GAP_BUFFER = gapBuffer;
 
         selectedTracks.forEach((trackObj, priority) => {
             const newNotes = parseNotes(trackObj, priority);
@@ -135,28 +160,36 @@ export class MidiParser {
             }
         });
 
-        // 4. 최종 정렬 및 후처리
+        // 4. 최종 정렬 및 후처리 (연타 방지 포함)
         mergedNotes.sort((a, b) => a.time - b.time);
 
         const processedNotes = [];
         const laneBlockedUntil = [0, 0, 0, 0];
 
+        let lastNoteTime = -9999; // 연타 방지용
+
         mergedNotes.forEach(note => {
-            // 노트 길이 최소값 보정 (시각적 가시성 확보)
+            // [New] 연타 방지: 이전 노트와 간격이 너무 좁으면 스킵
+            if (note.time - lastNoteTime < minInterval) {
+                return;
+            }
+
+            // 노트 길이 최소값 보정
             note.duration = Math.max(note.duration, 100);
             note.isLongNote = note.duration >= 300;
 
-            // 최종 물리적 레인 충돌 방지 (안전장치 - 채보 겹침 방지)
+            // 최종 물리적 레인 충돌 방지
             if (note.time >= laneBlockedUntil[note.lane]) {
                 processedNotes.push(note);
                 laneBlockedUntil[note.lane] = note.time + note.duration + 20;
+                lastNoteTime = note.time; // 유효 노트 등록 시 시간 갱신
             }
         });
 
         // 5. 배경음 설정 (모든 트랙 연주 허용)
         const activeLayoutChannels = selectedTracks.map(t => t.track.channel);
 
-        // 중요: 모든 트랙이 소리나도록 기존 음소거(track.notes 제거) 로직을 주석 처리함.
+        // 중요: 모든 트랙이 소리나도록 기존 음소거 처리는 주석 유지
         /*
         midi.tracks.forEach((track, idx) => {
             if (!selectedTracks.some(t => t.idx === idx)) {

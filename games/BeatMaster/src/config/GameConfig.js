@@ -31,7 +31,7 @@ export const CONFIG = {
         }
     },
     AUDIO: {
-        MASTER_VOLUME: 0.8,
+        MASTER_VOLUME: 1.0,
         SOUNDFONT_URL: 'public/assets/soundfonts/TimGM6mb.sf2'
     },
     VISUAL: {
