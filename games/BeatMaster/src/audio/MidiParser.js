@@ -16,7 +16,7 @@ export class MidiParser {
         this.gameData = null;
     }
 
-    async parse(urlOrBuffer, difficulty = 'NORMAL') {
+    async parse(urlOrBuffer, difficulty = 'NORMAL', isMobile = false) {
         try {
             const Midi = window.Midi; // index.html에서 로드된 @tonejs/midi
             let buffer;
@@ -29,7 +29,7 @@ export class MidiParser {
 
             // 분석을 위해 매번 새로운 Midi 객체 생성 (원본 변조 방지)
             const midi = new Midi(buffer);
-            this.gameData = this.analyze(midi, difficulty, buffer);
+            this.gameData = this.analyze(midi, difficulty, buffer, isMobile);
             return this.gameData;
         } catch (e) {
             console.error("[MidiParser] Parsing failed:", e);
@@ -37,7 +37,7 @@ export class MidiParser {
         }
     }
 
-    analyze(midi, difficulty = 'NORMAL', originalBuffer) {
+    analyze(midi, difficulty = 'NORMAL', originalBuffer, isMobile = false) {
         // 난이도별 파라미터 설정
         let gapBuffer = 100;
         let maxTracks = 0;
@@ -147,18 +147,19 @@ export class MidiParser {
                         const exStart = existing.time - GAP_BUFFER;
                         const exEnd = existing.time + existing.duration + GAP_BUFFER;
 
-                        // [핵심 변경] HARD 모드는 '같은 레인'인 경우만 충돌로 간주 -> 코드(Chord) 허용
+                        // [핵심 변경] 모바일은 같은 손 그룹(0+1, 2+3) 동시 노트 방지
                         const isTimeOverlapping = (myStart < exEnd && myEnd > exStart);
                         const isSameLane = (note.lane === existing.lane);
+                        const isSameHandGroup = isMobile && (Math.floor(note.lane / 2) === Math.floor(existing.lane / 2));
 
-                        // exStart, exEnd 재정의 (gap_buffer 적용)
                         if (difficulty === 'HARD') {
-                            if (isTimeOverlapping && isSameLane) {
+                            if (isTimeOverlapping && (isSameLane || isSameHandGroup)) {
                                 isColliding = true;
                                 break;
                             }
                         } else {
-                            if (isTimeOverlapping) {
+                            // EASY/NORMAL에서도 모바일이면 같은 손 그룹 충돌 체크
+                            if (isTimeOverlapping && (isSameLane || isSameHandGroup)) {
                                 isColliding = true;
                                 break;
                             }
@@ -195,9 +196,21 @@ export class MidiParser {
             note.isLongNote = note.duration >= 300;
 
             // 최종 물리적 레인 충돌 방지
-            if (note.time >= laneBlockedUntil[note.lane]) {
+            const isBlocked = note.time < laneBlockedUntil[note.lane];
+            // [모바일 전용] 같은 손 그룹 연타/동시 입력 방지
+            const handGroup = Math.floor(note.lane / 2);
+            const isHandGroupBlocked = isMobile && (note.time < laneBlockedUntil[handGroup * 2] || note.time < laneBlockedUntil[handGroup * 2 + 1]);
+
+            if (!isBlocked && !isHandGroupBlocked) {
                 processedNotes.push(note);
                 laneBlockedUntil[note.lane] = note.time + note.duration + 20;
+
+                // 모바일인 경우 해당 손 그룹의 다른 레인도 최소한의 간격(20ms)은 확보
+                if (isMobile) {
+                    const otherLane = (note.lane % 2 === 0) ? note.lane + 1 : note.lane - 1;
+                    laneBlockedUntil[otherLane] = Math.max(laneBlockedUntil[otherLane], note.time + 20);
+                }
+
                 lastNoteTime = note.time; // 유효 노트 등록 시 시간 갱신
             }
         });

@@ -274,7 +274,9 @@ class GameEngine {
         this.elements.startBtn.innerText = "PARSING...";
 
         try {
-            const gameData = await this.parser.parse(src, this.state.difficulty);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            console.log(`[GameEngine] Loading MIDI (isMobile: ${isMobile})`);
+            const gameData = await this.parser.parse(src, this.state.difficulty, isMobile);
             this.state.notes = gameData.allNotes.map(n => ({
                 ...n,
                 hit: false,
