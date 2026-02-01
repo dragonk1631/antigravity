@@ -1,22 +1,9 @@
 /**
- * MidiParser - Simple Single Track Mode (User Request Reset)
- * 사용자 요청에 따라 모든 복잡한 로직을 제거하고, 
- * 오직 첫 번째 유효 트랙만 재생 및 채보하는 단순 모드입니다.
+ * MidiParser - 5-Track Layered Fill Mode
+ * 우선순위 기반 5계층 노트 생성 (Main -> Sub1 -> Sub2 -> Sub3 -> Sub4)
  */
 
 import { CONFIG } from '../config/GameConfig.js';
-
-// GM 드럼 맵 (Legacy Support)
-const DRUM_TO_LANE = {
-    // Lane 0: Kick
-    35: 0, 36: 0,
-    // Lane 1: Snare
-    38: 1, 40: 1,
-    // Lane 2: Clap / Percussion
-    39: 2, 50: 2, 54: 2, 56: 2,
-    // Lane 3: Hi-Hat / Cymbals
-    42: 3, 44: 3, 46: 3, 49: 3, 51: 3, 52: 3
-};
 
 export class MidiParser {
     constructor() {
@@ -46,7 +33,7 @@ export class MidiParser {
     }
 
     analyze(midi, difficulty = 'NORMAL', originalBuffer) {
-        console.log("%c[MidiParser] 🚀 Executing 4-TRACK LAYERED FILL Mode", "color: #00ffff; font-weight: bold; font-size: 14px;");
+        console.log("%c[MidiParser] 🚀 Executing 5-TRACK LAYERED FILL Mode", "color: #00ffff; font-weight: bold; font-size: 14px;");
 
         // 1. 트랙 점수 산정 (Scoring)
         const candidates = [];
@@ -56,7 +43,8 @@ export class MidiParser {
             // 노이즈 필터링: 노트 수 너무 적은 트랙 제외
             if (track.notes.length < 10) return;
 
-            // 드럼 제외 (멜로디 중심 채보를 위해)
+            // 드럼 제외 (멜로디 중심 채보를 위해 1차 필터링)
+            // 단, 멜로디 트랙이 부족할 경우 대비해 완전히 배제하진 않더라도 여기선 안전하게 제외
             if (track.instrument.percussion || track.channel === 9) return;
 
             let score = 0;
@@ -70,7 +58,7 @@ export class MidiParser {
             if (name.includes('melody') || name.includes('vocal') || name.includes('lead') || name.includes('main')) score += 3000;
             if (name.includes('piano') || name.includes('key') || name.includes('synth')) score += 1500;
             if (name.includes('guitar')) score += 1000;
-            if (name.includes('bass')) score -= 500; // 베이스는 최후순위
+            if (name.includes('bass')) score -= 500; // 베이스는 최후순위 (리듬감은 좋으나 멜로디로서는 글쎄)
 
             console.log(`Track ${idx} [${name}]: Score ${score} (Notes: ${noteCount})`);
 
@@ -78,9 +66,9 @@ export class MidiParser {
         });
         console.groupEnd();
 
-        // 점수순 정렬 후 상위 4개 선정
+        // 점수순 정렬 후 상위 5개 선정
         candidates.sort((a, b) => b.score - a.score);
-        const selectedTracks = candidates.slice(0, 4); // Top 4
+        const selectedTracks = candidates.slice(0, 5); // Top 5
 
         if (selectedTracks.length === 0) {
             console.error("No playable tracks found.");
@@ -97,16 +85,16 @@ export class MidiParser {
                 midi: note.midi,
                 velocity: note.velocity,
                 lane: note.midi % 4,
-                priority: priority, // 0(High) ~ 3(Low)
+                priority: priority, // 0(High) ~ 4(Low)
                 originalChannel: trackObj.track.channel
             }));
         };
 
         // 3. 계층적 병합 (Layered Merge)
-        // Priority 0 -> 1 -> 2 -> 3 순서로 빈 공간 채우기
+        // Priority 0 -> 1 -> ... -> 4 순서로 빈 공간 채우기
         let mergedNotes = [];
 
-        // 시간 충돌 방지 버퍼 (ms) - 너무 빽빽하지 않게
+        // 시간 충돌 방지 버퍼 (ms) - 너무 빽빽하지 않게 간격 유지
         const GAP_BUFFER = 100;
 
         selectedTracks.forEach((trackObj, priority) => {
@@ -125,7 +113,7 @@ export class MidiParser {
                     let isColliding = false;
 
                     // 기존에 확보된 노트들과 충돌 검사
-                    // (단순 순회: 노트 수가 많지 않으므로 성능 이슈 미미함)
+                    // (단순 순회 방식으로 충분함. 노트 수 제한적)
                     for (const existing of mergedNotes) {
                         const exStart = existing.time - GAP_BUFFER;
                         const exEnd = existing.time + existing.duration + GAP_BUFFER;
@@ -142,7 +130,7 @@ export class MidiParser {
                         addedCount++;
                     }
                 });
-                console.log(`[Layered Fill] Priority ${priority} Track: Added ${addedCount} fill-in notes.`);
+                console.log(`[Layered Fill] Priority ${priority} (Track ${trackObj.idx}): Added ${addedCount} fill-in notes.`);
             }
         });
 
@@ -153,18 +141,18 @@ export class MidiParser {
         const laneBlockedUntil = [0, 0, 0, 0];
 
         mergedNotes.forEach(note => {
-            // 노트 길이 최소값 보정
+            // 노트 길이 최소값 보정 (시각적 가시성 확보)
             note.duration = Math.max(note.duration, 100);
             note.isLongNote = note.duration >= 300;
 
-            // 최종 물리적 레인 충돌 방지 (안전장치)
+            // 최종 물리적 레인 충돌 방지 (안전장치 - 채보 겹침 방지)
             if (note.time >= laneBlockedUntil[note.lane]) {
                 processedNotes.push(note);
                 laneBlockedUntil[note.lane] = note.time + note.duration + 20;
             }
         });
 
-        // 5. 배경음 설정 (선정된 4개 트랙만 활성화)
+        // 5. 배경음 설정 (선정된 5개 트랙만 활성화 - 나머지는 음소거)
         const activeLayoutChannels = selectedTracks.map(t => t.track.channel);
 
         midi.tracks.forEach((track, idx) => {
