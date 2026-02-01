@@ -654,38 +654,48 @@ class GameEngine {
     }
 
     loop(timestamp) {
-        if (!this.state.isPlaying || !this.player) return;
+        if (!this.state.isPlaying) return;
 
-        // [리드인 시스템] 시스템 시간과 오디오 시간의 동기화
-        const leadInMs = (CONFIG.GAME.LEAD_IN || 0) * 1000;
-        const elapsedSinceStart = performance.now() - this.state.gameStartTime;
+        requestAnimationFrame((t) => this.loop(t));
 
-        let newTime;
+        // [Fix] Calculate Time based on System Clock for accuracy & continuation after audio ends
+        const rawTime = timestamp - this.state.gameStartTime;
+        // Apply Audio Offset (latency correction)
+        this.state.currentTime = rawTime - (CONFIG.NOTES.JUDGMENT.AUDIO_OFFSET * 1000);
 
-        // 오디오 재생 전 (리드인 구간: 마이너스 시간)
-        if (!this.state.audioStarted) {
-            newTime = elapsedSinceStart - leadInMs;
+        // Sync Audio only if drifting significantly (and audio is actually playing)
+        if (this.player && this.state.audioStarted) {
+            const audioTimeMs = this.player.currentTime * 1000;
+            const diff = Math.abs(this.state.currentTime - audioTimeMs);
 
-            if (newTime >= 0) {
-                this.state.audioStarted = true;
-                this.player.play();
-                this.debug.log("음악 재생 시작!", "success");
+            // If drift is > 50ms and audio is playing, snap visual time to audio
+            // But allowed to exceed audio duration for finish sequence
+            if (diff > 50 && this.player.currentTime < this.player.duration) {
+                // this.state.gameStartTime = timestamp - ... (Re-sync logic could go here)
+                // For now, trust system time for smoothness, rely on audio for hits
             }
-        } else {
-            // 오디오 재생 중: 오디오 엔진의 시간과 실시간 보정값 사용
-            const audioTime = (this.player.currentTime - (CONFIG.NOTES.JUDGMENT.AUDIO_OFFSET || 0)) * 1000;
-            // [Fix] 초기 재생 지연으로 인한 시간 역행(Jumping) 방지
-            // 이전 프레임보다 시간이 뒤로 가지 않도록 보정 + 최소 0이상 유지
-            newTime = Math.max(this.state.currentTime, audioTime, 0);
+
+            // Start audio if lead-in passed
+            if (!this.state.audioStarted && this.state.currentTime >= 0) {
+                // Already handled by initial delay? 2.0s Lead-in is handled by negative start time
+            }
         }
 
-        this.state.currentTime = newTime;
-
-        // 오디오 중단 방지 가드 (브라우저 상호작용 이슈 해결)
-        if (this.audioCtx && this.audioCtx.state === 'suspended' && this.state.audioStarted) {
-            this.player.resumeContext();
+        // Start Audio at 0.0s (Lead-in is -2000ms usually)
+        if (!this.state.audioStarted && this.state.currentTime >= 0) {
+            if (this.player) this.player.play();
+            this.state.audioStarted = true;
         }
 
+        const delta = timestamp - this._lastTimestamp;
+        this._lastTimestamp = timestamp;
+
+        this.update(delta);
+        this.render();
+        this.updateUI();
+    }
+
+    update(delta) {
         // Missed notes check (Sliding Window Optimization)
         const missThreshold = this.state.currentTime - (CONFIG.NOTES.JUDGMENT.GOOD * 1000) - (CONFIG.NOTES.JUDGMENT.MISS_GRACE * 1000);
 
@@ -728,13 +738,13 @@ class GameEngine {
                         activeLN.completed = true;
                         this.syncCheckIndex();
                     }
-                    this.state.activeLongNotes[i] = null;
+                    delete this.state.activeLongNotes[i];
                     continue;
                 }
 
                 // 롱노트 유지 중인데 키를 떼서 미스 처리해야 하는 경우
                 if (!this.state.keyPressed[i] && now > endTime + releaseWindow) {
-                    this.state.activeLongNotes[i] = null;
+                    delete this.state.activeLongNotes[i];
                     activeLN.completed = true;
                     this.applyJudgment("MISS");
 
@@ -753,17 +763,10 @@ class GameEngine {
             }
         }
 
-        this.render();
-        this.updateUI();
-
         // Update timers
-        const delta = this._lastTimestamp ? (timestamp - this._lastTimestamp) : 0;
         this.state.laneActive = this.state.laneActive.map(t => Math.max(0, t - delta));
         this.state.laneHitFlash = this.state.laneHitFlash.map(t => Math.max(0, t - delta));
         this.updateParticles(delta);
-        this._lastTimestamp = timestamp;
-
-        requestAnimationFrame((t) => this.loop(t));
     }
 
     updateUI() {
@@ -801,13 +804,15 @@ class GameEngine {
         }
 
         // Auto-show results when finished
-        // [Fix] Trigger 2 seconds AFTER the last note/long-note ends
+        // [Fix] use lastNoteEndTime + 2000ms
         const gameEndTime = this.state.lastNoteEndTime + 2000;
 
-        // Debug logging for finish condition
-        // console.log(`Current: ${this.state.currentTime.toFixed(0)}, End: ${gameEndTime}`);
-
+        /* 
+           Debug Log: Monitor Time vs EndTime
+           Condition: currentTime must go BEYOND audio duration if last note is late
+        */
         if (this.state.isPlaying && this.state.currentTime >= gameEndTime) {
+            console.log(`[GameEngine] Finish Triggered! Time: ${this.state.currentTime.toFixed(0)}, End: ${gameEndTime}`);
             this.state.isPlaying = false;
             if (this.player) this.player.stop();
             this.finishGameSequence();
