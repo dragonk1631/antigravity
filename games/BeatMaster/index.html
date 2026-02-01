@@ -64,6 +64,12 @@
 
         <!-- Game Interface -->
         <main id="game-container">
+            <!-- HP Gauge (Vertical Sidebar) -->
+            <div id="hp-container">
+                <div id="hp-bar-fill"></div>
+                <div class="hp-label">HP</div>
+            </div>
+
             <div id="hud">
                 <div class="hud-top">
                     <div class="score-container">
@@ -105,7 +111,52 @@
                 <div class="touch-zone arcade-btn" data-lane="3" data-key="K">
                     <div class="arcade-icon crash"></div>
                 </div>
-            </div>
+                <!-- Result Overlay -->
+                <div id="result-overlay" class="game-overlay">
+                    <div class="result-box glass-panel">
+                        <h2 class="title">SESSION COMPLETE</h2>
+                        <div class="rank-display">
+                            <span id="result-rank">-</span>
+                            <p>RANK</p>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="label">PERFECT</span>
+                                <span id="stat-perfect" class="value perfect">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">GOOD</span>
+                                <span id="stat-good" class="value good">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">MISS</span>
+                                <span id="stat-miss" class="value miss">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-summary">
+                            <div class="stat-row">
+                                <span>MAX COMBO</span>
+                                <span id="stat-maxcombo">0</span>
+                            </div>
+                            <div class="stat-row highlight">
+                                <span>TOTAL SCORE</span>
+                                <span id="stat-score">000000</span>
+                            </div>
+                        </div>
+                        <button class="primary-btn restart-btn">RETRY SESSION</button>
+                        <button class="secondary-btn home-btn">BACK TO MENU</button>
+                    </div>
+                </div>
+
+                <!-- Game Over Overlay -->
+                <div id="game-over-overlay" class="game-overlay">
+                    <div class="fail-box glass-panel">
+                        <h2 class="title fail">SESSION FAILED</h2>
+                        <p class="fail-msg">HP DEPLETED</p>
+                        <button class="primary-btn restart-btn">RETRY SESSION</button>
+                        <button class="secondary-btn home-btn">BACK TO MENU</button>
+                    </div>
+                </div>
 
         </main>
 

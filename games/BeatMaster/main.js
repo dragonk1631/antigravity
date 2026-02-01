@@ -34,7 +34,9 @@ class GameEngine {
             gameplayChannels: [],
             laneHitFlash: [0, 0, 0, 0],
             isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-            lastUIUpdate: { score: -1, combo: -1, time: "" }
+            lastUIUpdate: { score: -1, combo: -1, time: "", hp: -1 },
+            hp: 100,
+            stats: { perfect: 0, good: 0, miss: 0, maxCombo: 0 }
         };
 
         this.cache = {
@@ -69,7 +71,10 @@ class GameEngine {
             diffBtns: document.querySelectorAll('.difficulty-btn'),
             debugConsole: document.getElementById('debug-console'),
             touchZones: document.querySelectorAll('.touch-zone'),
-            fullscreenBtn: document.getElementById('fullscreen-btn')
+            fullscreenBtn: document.getElementById('fullscreen-btn'),
+            hpBar: document.getElementById('hp-bar-fill'),
+            resultOverlay: document.getElementById('result-overlay'),
+            failOverlay: document.getElementById('game-over-overlay')
         };
 
         if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
@@ -79,12 +84,24 @@ class GameEngine {
 
     async init() {
         this.resize();
+        this.loadSongList();
+        this.hideOverlays();
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('orientationchange', () => {
             setTimeout(() => this.resize(), 300); // Give it time to settle
         });
         this.bindEvents();
 
+        console.log("[GameEngine] Initialized with modules");
+    }
+
+    hideOverlays() {
+        this.elements.resultOverlay.classList.remove('visible');
+        this.elements.failOverlay.classList.remove('visible');
+        this.elements.overlay.classList.remove('hidden'); // Ensure main overlay is visible
+    }
+
+    async loadSongList() {
         // 내장 곡 로드
         // 로컬 Songs.json 로드 (동적 리스트)
         try {
@@ -106,8 +123,6 @@ class GameEngine {
             opt.innerText = "❌ No songs found (Run update_songs.bat)";
             this.elements.songSelect.appendChild(opt);
         }
-
-        console.log("[GameEngine] Initialized with modules");
     }
 
     async setupAudio() {
@@ -162,6 +177,22 @@ class GameEngine {
                     await this.loadMidiData(this.state.currentMidiSource);
                 }
                 console.log(`[GameEngine] Difficulty changed to: ${diff}`);
+            });
+        });
+
+        // Overlay buttons
+        document.querySelectorAll('.restart-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.hideOverlays();
+                this.start();
+            });
+        });
+        document.querySelectorAll('.home-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.hideOverlays();
+                this.elements.overlay.classList.add('visible');
+                this.state.isPlaying = false;
+                if (this.player) this.player.stop();
             });
         });
 
@@ -410,6 +441,56 @@ class GameEngine {
         this.elements.startBtn.innerText = "RESUME";
     }
 
+    failGame() {
+        this.state.isPlaying = false;
+        if (this.player) this.player.stop();
+        this.elements.failOverlay.classList.add('visible');
+    }
+
+    showResults() {
+        this.state.isPlaying = false;
+
+        // Calculate Rank
+        const total = this.state.stats.perfect + this.state.stats.good + this.state.stats.miss;
+        const accuracy = total > 0 ? (this.state.stats.perfect / total) : 0;
+        let rank = 'F';
+        if (accuracy > 0.95) rank = 'S';
+        else if (accuracy > 0.85) rank = 'A';
+        else if (accuracy > 0.70) rank = 'B';
+        else if (accuracy > 0.50) rank = 'C';
+
+        // Update Result UI
+        document.getElementById('result-rank').innerText = rank;
+        document.getElementById('stat-perfect').innerText = this.state.stats.perfect;
+        document.getElementById('stat-good').innerText = this.state.stats.good;
+        document.getElementById('stat-miss').innerText = this.state.stats.miss;
+        document.getElementById('stat-maxcombo').innerText = this.state.stats.maxCombo;
+        document.getElementById('stat-score').innerText = this.state.score.toString().padStart(6, '0');
+
+        this.elements.resultOverlay.classList.add('visible');
+    }
+
+    start() {
+        if (this.state.isPlaying) return;
+        this.state.isPlaying = true;
+        this.state.score = 0;
+        this.state.combo = 0;
+        this.state.hp = 100;
+        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
+        this.state.nextCheckIndex = 0;
+        this.state.nextLaneNoteIndices = [0, 0, 0, 0];
+        this.state.lastUIUpdate = { score: -1, combo: -1, time: "", hp: -1 };
+
+        this.elements.overlay.classList.remove('visible');
+
+        if (this.player) {
+            this.player.start();
+        }
+
+        this.state.startTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+    }
+
     checkHit(lane) {
         const now = this.state.currentTime;
         const windowSize = CONFIG.NOTES.JUDGMENT.GOOD * 1000;
@@ -456,14 +537,42 @@ class GameEngine {
         return "MISS";
     }
 
+    calculateScore(type, combo) {
+        let baseScore = 0;
+        if (type === "PERFECT") baseScore = 100;
+        else if (type === "GOOD") baseScore = 50;
+
+        // Combo multiplier (simple example)
+        let comboMultiplier = 1;
+        if (combo >= 50) comboMultiplier = 1.5;
+        else if (combo >= 20) comboMultiplier = 1.2;
+
+        return Math.floor(baseScore * comboMultiplier);
+    }
+
     applyJudgment(type) {
         if (type === "MISS") {
             this.state.combo = 0;
+            this.state.hp = Math.max(0, this.state.hp - 10);
+            this.state.stats.miss++;
             this.debug.log("Oops! Miss", "error");
         } else {
             this.state.combo++;
-            this.state.score += (type === "PERFECT" ? 100 : 50);
+            this.state.stats.maxCombo = Math.max(this.state.stats.maxCombo, this.state.combo);
+            if (type === "PERFECT") {
+                this.state.hp = Math.min(100, this.state.hp + 2);
+                this.state.stats.perfect++;
+            } else {
+                this.state.hp = Math.min(100, this.state.hp + 1);
+                this.state.stats.good++;
+            }
         }
+
+        if (this.state.hp <= 0 && this.state.isPlaying) {
+            this.failGame();
+        }
+
+        this.state.score += this.calculateScore(type, this.state.combo);
 
         const el = this.elements.judgmentEl;
         el.innerText = type;
@@ -598,6 +707,12 @@ class GameEngine {
         const progress = (current / duration) * 100;
         this.elements.progressBar.style.width = `${progress}%`;
 
+        const fmt = (seconds) => {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        };
+
         const timeStr = `${fmt(current)} / ${fmt(duration)}`;
         if (this.state.lastUIUpdate.time !== timeStr) {
             this.elements.timeDisplay.innerText = timeStr;
@@ -612,6 +727,17 @@ class GameEngine {
         if (this.state.lastUIUpdate.combo !== this.state.combo) {
             this.elements.comboEl.innerText = this.state.combo > 0 ? `${this.state.combo} COMBO` : "";
             this.state.lastUIUpdate.combo = this.state.combo;
+        }
+
+        if (this.state.lastUIUpdate.hp !== this.state.hp) {
+            this.elements.hpBar.style.height = `${this.state.hp}%`;
+            this.state.lastUIUpdate.hp = this.state.hp;
+        }
+
+        // Auto-show results when finished
+        if (this.player && this.player.currentTime >= this.player.duration - 0.1 && this.state.isPlaying) {
+            setTimeout(() => this.showResults(), 1000);
+            this.state.isPlaying = false;
         }
     }
 
@@ -768,22 +894,25 @@ class GameEngine {
             this.ctx.shadowBlur = 0;
         }
 
-        // [Enhanced] Hit line visibility
+        // [Enhanced] Thick Judgment Line (Satisfying DJMAX Style)
         const hitFlash = Math.max(0, (200 - (performance.now() - this.state.lastHitTime)) / 200);
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + hitFlash * 0.4})`;
-        this.ctx.fillRect(0, hitLineY - 3 - hitFlash * 5, this.state.canvasWidth, 6 + hitFlash * 10);
 
-        this.ctx.strokeStyle = 'var(--primary)';
-        this.ctx.lineWidth = 2 + hitFlash * 3;
+        // Thick Background Glow (Cyan)
+        const judgmentColor = 'var(--judgment)';
+        this.ctx.fillStyle = `rgba(0, 242, 255, ${0.1 + hitFlash * 0.4})`;
+        this.ctx.fillRect(0, hitLineY - 8 - hitFlash * 5, this.state.canvasWidth, 16 + hitFlash * 10);
+
+        // Solid Core Line
+        this.ctx.strokeStyle = judgmentColor;
+        this.ctx.lineWidth = 6 + hitFlash * 4; // Thick!!
         this.ctx.beginPath();
         this.ctx.moveTo(0, hitLineY);
         this.ctx.lineTo(this.state.canvasWidth, hitLineY);
         this.ctx.stroke();
 
-        // Skip expensive shadows on mobile
         if (!this.state.isMobile) {
-            this.ctx.shadowBlur = 15;
-            this.ctx.shadowColor = 'var(--primary)';
+            this.ctx.shadowBlur = 20;
+            this.ctx.shadowColor = judgmentColor;
             this.ctx.stroke();
             this.ctx.shadowBlur = 0;
         }
