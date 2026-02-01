@@ -205,7 +205,21 @@ class GameEngine {
         // Universal Pointer Events on Canvas (Full-Lane Touch)
         this.elements.canvas.addEventListener('pointerdown', (e) => {
             e.preventDefault();
-            this.handlePointerDown(e);
+            this.handlePointerDown(e, true);
+        });
+
+        // [New] Expanded Touch Support: Icons part at the bottom
+        this.elements.touchZones.forEach(zone => {
+            zone.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const lane = parseInt(zone.getAttribute('data-lane'));
+                this.state.lanePointerMap[e.pointerId] = lane;
+                this.triggerLaneDown(lane);
+                zone.classList.add('active');
+
+                // Track finger movement even if it leaves the specific element
+                zone.setPointerCapture(e.pointerId);
+            });
         });
 
         window.addEventListener('pointerup', (e) => {
@@ -217,13 +231,16 @@ class GameEngine {
         });
     }
 
-    handlePointerDown(e) {
+    handlePointerDown(e, fromCanvas = false) {
         if (!this.state.isPlaying) return;
 
-        const rect = this.elements.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const laneWidth = rect.width / CONFIG.NOTES.LANES;
-        const lane = Math.floor(x / laneWidth);
+        let lane;
+        if (fromCanvas) {
+            const rect = this.elements.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const laneWidth = rect.width / CONFIG.NOTES.LANES;
+            lane = Math.floor(x / laneWidth);
+        }
 
         if (lane >= 0 && lane < CONFIG.NOTES.LANES) {
             this.state.lanePointerMap[e.pointerId] = lane;
@@ -236,12 +253,16 @@ class GameEngine {
     }
 
     handlePointerUp(e) {
-        if (this.state.lanePointerMap[e.pointerId] !== undefined) {
-            const lane = this.state.lanePointerMap[e.pointerId];
+        const lane = this.state.lanePointerMap[e.pointerId];
+        if (lane !== undefined) {
             this.triggerLaneUp(lane);
-            this.elements.touchZones[lane]?.classList.remove('active');
             delete this.state.lanePointerMap[e.pointerId];
+            this.elements.touchZones[lane]?.classList.remove('active');
         }
+
+        // Also ensure UI cleanup for the specific zone if it was captured
+        const zone = [...this.elements.touchZones].find(z => parseInt(z.getAttribute('data-lane')) === lane);
+        if (zone) zone.classList.remove('active');
     }
 
     triggerLaneDown(lane) {
@@ -799,6 +820,36 @@ class GameEngine {
 
         const { laneWidth, hitLineY, pixelsPerMs, laneColors, laneGradients, beamGradients } = this.cache;
 
+        // [Optimize] Render Static Background from Cache Canvas
+        if (!this.cache.bgCanvas) {
+            this.cache.bgCanvas = document.createElement('canvas');
+            this.cache.bgCanvas.width = this.state.canvasWidth;
+            this.cache.bgCanvas.height = this.state.canvasHeight;
+            const bctx = this.cache.bgCanvas.getContext('2d');
+
+            // Side Rails (Gold/Metallic)
+            bctx.strokeStyle = 'rgba(255, 180, 0, 0.8)';
+            bctx.lineWidth = 4;
+            bctx.beginPath();
+            bctx.moveTo(2, 0);
+            bctx.lineTo(2, this.state.canvasHeight);
+            bctx.moveTo(this.state.canvasWidth - 2, 0);
+            bctx.lineTo(this.state.canvasWidth - 2, this.state.canvasHeight);
+            bctx.stroke();
+
+            // Lane Dividers
+            for (let i = 1; i < CONFIG.NOTES.LANES; i++) {
+                const x = i * laneWidth;
+                bctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                bctx.lineWidth = 1;
+                bctx.beginPath();
+                bctx.moveTo(x, 0);
+                bctx.lineTo(x, this.state.canvasHeight);
+                bctx.stroke();
+            }
+        }
+        this.ctx.drawImage(this.cache.bgCanvas, 0, 0);
+
         // Lane lines & Active feedback
         for (let i = 0; i < CONFIG.NOTES.LANES; i++) {
             const x = i * laneWidth;
@@ -806,25 +857,16 @@ class GameEngine {
             // Draw lane background if active or key pressed
             if (this.state.laneActive[i] > 0 || this.state.keyPressed[i]) {
                 const opacity = this.state.keyPressed[i] ? 1.0 : (this.state.laneActive[i] / 200);
-                this.ctx.globalAlpha = opacity;
+                this.ctx.globalAlpha = Math.max(0, opacity);
                 this.ctx.fillStyle = laneGradients[i];
                 this.ctx.fillRect(x, 0, laneWidth, hitLineY);
             }
 
-            // Lane Divider
-            if (i > 0) {
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-                this.ctx.lineWidth = 1;
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, 0);
-                this.ctx.lineTo(x, this.state.canvasHeight);
-                this.ctx.stroke();
-            }
 
             // [New] Lane Hit Flash (Satisfying hit feedback)
             if (this.state.laneHitFlash[i] > 0) {
                 const opacity = this.state.laneHitFlash[i] / 150;
-                this.ctx.globalAlpha = opacity;
+                this.ctx.globalAlpha = Math.max(0, opacity);
                 this.ctx.fillStyle = beamGradients[i];
                 this.ctx.fillRect(x + 5, 0, laneWidth - 10, hitLineY);
 
@@ -835,19 +877,6 @@ class GameEngine {
             this.ctx.globalAlpha = 1.0;
         }
 
-        // Side Rails (Gold/Metallic)
-        this.ctx.strokeStyle = 'rgba(255, 180, 0, 0.8)';
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        this.ctx.moveTo(2, 0);
-        this.ctx.lineTo(2, this.state.canvasHeight);
-        this.ctx.moveTo(this.state.canvasWidth - 2, 0);
-        this.ctx.lineTo(this.state.canvasWidth - 2, this.state.canvasHeight);
-        this.ctx.stroke();
-        this.ctx.shadowBlur = 10;
-        this.ctx.shadowColor = 'rgba(255, 180, 0, 1)';
-        this.ctx.stroke();
-        this.ctx.shadowBlur = 0;
 
         // [New] Guilty Gear Style HUD (Rendered on Canvas)
         const hudY = 70;
@@ -1016,6 +1045,9 @@ class GameEngine {
             grad.addColorStop(1, 'transparent');
             return grad;
         });
+
+        // [Safe Optimize] Clear background cache on resize
+        this.cache.bgCanvas = null;
     }
 
     createParticles(lane) {
@@ -1043,13 +1075,14 @@ class GameEngine {
     }
 
     updateParticles(delta) {
+        // [Optimize] Iterate active list instead of whole pool
         const active = this.cache.activeParticles;
         for (let i = active.length - 1; i >= 0; i--) {
             const p = active[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.4;
+            p.x += p.vx * (delta / 16);
+            p.y += p.vy * (delta / 16);
             p.life -= p.decay * (delta / 16);
+
             if (p.life <= 0) {
                 active.splice(i, 1);
             }
