@@ -33,10 +33,6 @@
                             <!-- JS에서 동적으로 추가 -->
                         </select>
                     </div>
-                    <div class="control-item">
-                        <label>MIDI 업로드</label>
-                        <input type="file" id="midi-upload" accept=".mid,.midi">
-                    </div>
                 </div>
 
                 <div class="settings-row">
@@ -58,9 +54,15 @@
                     </div>
                 </div>
 
+                <div class="settings-row"
+                    style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                    <div class="control-item" style="width: 100%;">
+                        <label>개인 MIDI 파일 직접 업로드</label>
+                        <input type="file" id="midi-upload" accept=".mid,.midi" style="width: 100%;">
+                    </div>
+                </div>
+
                 <button id="start-btn" class="primary-btn">START SESSION</button>
-                <button id="scan-btn" class="secondary-btn"
-                    style="margin-top: 1rem; opacity: 0.7; font-size: 0.8rem;">SCAN LOCAL MIDI FILES</button>
             </div>
         </div>
 
