@@ -430,10 +430,11 @@ class GameEngine {
 
         for (const msg of counts) {
             el.innerText = msg;
-            this.elements.judgmentEl.className = 'judgment-text anim-popup';
+            el.className = 'judgment-text countdown-text anim-popup'; // Use enhanced countdown style
 
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 1000)); // Change to 1s for better pacing
         }
+        el.className = 'judgment-text';
         el.innerText = "";
     }
 
@@ -763,9 +764,33 @@ class GameEngine {
 
         // Auto-show results when finished
         if (this.player && this.player.currentTime >= this.player.duration - 0.1 && this.state.isPlaying) {
-            setTimeout(() => this.showResults(), 1000);
             this.state.isPlaying = false;
+            this.finishGameSequence();
         }
+    }
+
+    async finishGameSequence() {
+        // 1. Show "FINISH!" Message
+        const el = this.elements.judgmentEl;
+        const finishDiv = document.createElement('div');
+        finishDiv.className = 'finish-text';
+        finishDiv.innerText = 'FINISH!';
+        this.elements.gameContainer.appendChild(finishDiv);
+
+        this.debug.log("곡 완료! 결과를 집계합니다...", "success");
+
+        // 2. Wait 2 seconds
+        await new Promise(r => setTimeout(r, 2000));
+
+        // 3. Screen Flash Effect
+        const flash = document.createElement('div');
+        flash.className = 'screen-flash active';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 1000);
+
+        // 4. Show Results
+        finishDiv.remove();
+        this.showResults();
     }
 
     render() {
