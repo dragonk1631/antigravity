@@ -104,10 +104,6 @@
     "url": "public/assets/midi/Fighting.mid"
   },
   {
-    "name": "💀 gameover",
-    "url": "public/assets/midi/gameover.mid"
-  },
-  {
     "name": "🎹 GM05",
     "url": "public/assets/midi/GM05.mid"
   },
@@ -156,16 +152,8 @@
     "url": "public/assets/midi/Ken2.mid"
   },
   {
-    "name": "🎹 leaderboard",
-    "url": "public/assets/midi/leaderboard.mid"
-  },
-  {
     "name": "🎹 livealive-killingfield",
     "url": "public/assets/midi/livealive-killingfield.mid"
-  },
-  {
-    "name": "🎹 mainmenu",
-    "url": "public/assets/midi/mainmenu.mid"
   },
   {
     "name": "🎹 melodies of life",
@@ -224,10 +212,6 @@
     "url": "public/assets/midi/Save_Them.mid"
   },
   {
-    "name": "⚙️ setting",
-    "url": "public/assets/midi/setting.mid"
-  },
-  {
     "name": "🎹 sfa2ken",
     "url": "public/assets/midi/sfa2ken.mid"
   },
@@ -262,14 +246,6 @@
   {
     "name": "🎵 Stage00009",
     "url": "public/assets/midi/Stage00009.mid"
-  },
-  {
-    "name": "🎵 stage01",
-    "url": "public/assets/midi/stage01.mid"
-  },
-  {
-    "name": "🎵 stage02",
-    "url": "public/assets/midi/stage02.mid"
   },
   {
     "name": "🎹 Starcraft - Terran Theme 03 MIDI",
@@ -312,16 +288,8 @@
     "url": "public/assets/midi/Trisection-1.mid"
   },
   {
-    "name": "🎹 twinkle",
-    "url": "public/assets/midi/twinkle.mid"
-  },
-  {
     "name": "🎹 t ogre15",
     "url": "public/assets/midi/t_ogre15.mid"
-  },
-  {
-    "name": "🏆 victory",
-    "url": "public/assets/midi/victory.mid"
   },
   {
     "name": "🎹 Videogame Tune - Ghouls and Ghosts - Level 1",
