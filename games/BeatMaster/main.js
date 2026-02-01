@@ -467,8 +467,8 @@ class GameEngine {
 
         for (const msg of counts) {
             el.innerText = msg;
-            // [Feature] Pulse animation for countdown
-            el.className = 'countdown-text anim-popup visible pulse';
+            // [Feature] Zoom-in animation for countdown
+            el.className = 'countdown-text anim-popup visible zoom-in';
 
             await new Promise(r => setTimeout(r, 1000));
         }
