@@ -57,6 +57,8 @@ body::after {
     background: radial-gradient(circle at center, rgba(16, 16, 24, 0.5) 0%, rgba(0, 0, 0, 0.8) 100%);
     display: flex;
     flex-direction: column;
+    touch-action: none;
+    /* Prevent browser gestures */
 }
 
 /* HP Gauge (Vertical Sidebar) */
@@ -373,6 +375,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
         max-width: 100%;
         border: none;
         height: 100%;
+    }
+
+    /* Hide touch zones on mobile for full-screen notes */
+    #touch-zones {
+        display: none !important;
+    }
+
+    /* Expand canvas to fill entire screen */
+    #game-canvas {
+        height: 100% !important;
     }
 }
 

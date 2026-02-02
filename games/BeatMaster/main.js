@@ -237,9 +237,14 @@ class GameEngine {
         let lane;
         if (fromCanvas) {
             const rect = this.elements.canvas.getBoundingClientRect();
+            if (!rect || rect.width === 0) return; // Defensive check
+
             const x = e.clientX - rect.left;
             const laneWidth = rect.width / CONFIG.NOTES.LANES;
             lane = Math.floor(x / laneWidth);
+
+            // [FIX] Clamp lane to valid range to prevent out-of-bounds
+            lane = Math.max(0, Math.min(CONFIG.NOTES.LANES - 1, lane));
         }
 
         if (lane >= 0 && lane < CONFIG.NOTES.LANES) {
@@ -1010,14 +1015,14 @@ class GameEngine {
         // [Enhanced] Thick Judgment Line (Satisfying DJMAX Style)
         const hitFlash = Math.max(0, (200 - (performance.now() - this.state.lastHitTime)) / 200);
 
-        // Thick Background Glow (Cyan) - Doubled thickness (16 -> 32)
+        // Thick Background Glow (Cyan) - Enhanced thickness
         const judgmentColor = 'var(--judgment)';
-        this.ctx.fillStyle = `rgba(0, 242, 255, ${0.1 + hitFlash * 0.4})`;
-        this.ctx.fillRect(0, hitLineY - 16 - hitFlash * 10, this.state.canvasWidth, 32 + hitFlash * 20);
+        this.ctx.fillStyle = `rgba(0, 242, 255, ${0.15 + hitFlash * 0.5})`;
+        this.ctx.fillRect(0, hitLineY - 20 - hitFlash * 12, this.state.canvasWidth, 40 + hitFlash * 24);
 
-        // Solid Core Line - Doubled thickness (6 -> 12)
+        // Solid Core Line - Thicker for better visibility
         this.ctx.strokeStyle = judgmentColor;
-        this.ctx.lineWidth = 12 + hitFlash * 8; // Ultra Thick!!
+        this.ctx.lineWidth = 20 + hitFlash * 10; // [ENHANCED] Increased from 12 to 20
         this.ctx.beginPath();
         this.ctx.moveTo(0, hitLineY);
         this.ctx.lineTo(this.state.canvasWidth, hitLineY);
