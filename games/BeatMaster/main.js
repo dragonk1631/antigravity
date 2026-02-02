@@ -87,6 +87,15 @@ class GameEngine {
     async init() {
         if (this.state.isMobile) {
             document.body.classList.add('is-mobile');
+            // Force hide touch zones on mobile
+            const touchZonesEl = document.getElementById('touch-zones');
+            if (touchZonesEl) {
+                touchZonesEl.style.display = 'none';
+            }
+            // Force canvas to full height
+            if (this.elements.canvas) {
+                this.elements.canvas.style.height = '100%';
+            }
         }
         this.resize();
         this.loadSongList();
