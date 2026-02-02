@@ -85,6 +85,9 @@ class GameEngine {
     }
 
     async init() {
+        if (this.state.isMobile) {
+            document.body.classList.add('is-mobile');
+        }
         this.resize();
         this.loadSongList();
         this.hideOverlays();

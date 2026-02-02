@@ -370,19 +370,31 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex-direction: column;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1023px),
+screen and (max-device-width: 1023px) {
     #game-container {
         max-width: 100%;
         border: none;
         height: 100%;
     }
+}
 
-    /* Hide touch zones on mobile for full-screen notes */
+/* Use JS-detected class for even more reliability */
+body.is-mobile #touch-zones {
+    display: none !important;
+}
+
+body.is-mobile #game-canvas {
+    height: 100% !important;
+}
+
+@media (max-width: 600px) {
+
+    /* Existing narrow mobile layout */
     #touch-zones {
         display: none !important;
     }
 
-    /* Expand canvas to fill entire screen */
     #game-canvas {
         height: 100% !important;
     }
