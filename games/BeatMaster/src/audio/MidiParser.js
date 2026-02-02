@@ -203,7 +203,10 @@ export class MidiParser {
 
             if (!isBlocked && !isHandGroupBlocked) {
                 processedNotes.push(note);
-                laneBlockedUntil[note.lane] = note.time + note.duration + 20;
+
+                // Add extra spacing after long notes to prevent immediate follow-up notes
+                const extraSpacing = note.isLongNote ? 200 : 20;
+                laneBlockedUntil[note.lane] = note.time + note.duration + extraSpacing;
 
                 // 모바일인 경우 해당 손 그룹의 다른 레인도 최소한의 간격(20ms)은 확보
                 if (isMobile) {

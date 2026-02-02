@@ -19,7 +19,19 @@ export class MidiPlayer {
             const { WorkletSynthesizer, Sequencer } = await import(SPESSA_LIB_URL);
 
             await this.ctx.audioWorklet.addModule(PROCESSOR_URL);
-            this.synth = new WorkletSynthesizer(this.ctx);
+
+            // Enable high-quality audio settings
+            this.synth = new WorkletSynthesizer(this.ctx, {
+                // Enable reverb for spatial depth
+                reverbEnabled: true,
+                // Enable chorus for richer sound
+                chorusEnabled: true,
+                // Use high-quality interpolation
+                interpolationType: 'linear', // or 'cubic' for even higher quality
+                // Set high sample rate if supported
+                sampleRate: this.ctx.sampleRate
+            });
+
             this.synth.connect(this.ctx.destination);
 
             await this.synth.isReady;
@@ -42,7 +54,7 @@ export class MidiPlayer {
 
             this.sequencer = new Sequencer(this.synth);
             this.isReady = true;
-            console.log("[MidiPlayer] SpessaSynth & SoundFont Ready");
+            console.log("[MidiPlayer] SpessaSynth & SoundFont Ready (High Quality Mode)");
         } catch (e) {
             console.error("[MidiPlayer] Initialization failed:", e);
         }

@@ -32,14 +32,75 @@ export const CONFIG = {
     },
     AUDIO: {
         MASTER_VOLUME: 1.0,
-        SOUNDFONT_URL: 'public/assets/soundfonts/TimGM6mb.sf2'
+        SOUNDFONTS: {
+            GENERALUSER: {
+                name: 'GeneralUser GS (Balanced)',
+                url: 'public/assets/soundfonts/GeneralUser_GS.sf2',
+                size: '30 MB',
+                license: 'Free',
+                description: 'Balanced quality and size'
+            }
+        },
+        DEFAULT_SOUNDFONT: 'GENERALUSER',
+        QUALITY: {
+            REVERB_ENABLED: true,      // Spatial depth and ambience
+            CHORUS_ENABLED: true,       // Richer, fuller sound
+            INTERPOLATION: 'linear'     // 'linear' or 'cubic' for higher quality
+        }
     },
     VISUAL: {
         COLORS: {
             LANE_0: '#FF66B2', // Hwasa-han Pink
             LANE_1: '#ffcc00', // Yellow (Swapped)
             LANE_2: '#00f2ff', // Cyan (Swapped)
-            LANE_3: '#00ff66'  // Green
-        }
+            LANE_3: '#00ff66', // Green
+            SIDE_RAIL: 'rgba(255, 180, 0, 0.8)',      // 사이드 레일 색상
+            LANE_DIVIDER: 'rgba(255, 255, 255, 0.05)', // 레인 구분선
+            COMBO_GOLD: '#ffea00',                    // 100+ 콤보 색상
+            BEAM_CORE: 'rgba(255, 255, 255, 0.4)'     // 히트 빔 코어 색상
+        },
+        FONTS: {
+            COMBO_LABEL: '700 18px "Outfit"',        // COMBO 라벨 폰트
+            COMBO_LABEL_COLOR: 'rgba(255, 255, 255, 0.6)'
+        },
+        COMBO_GOLD_THRESHOLD: 100,                   // 골드 콤보 임계값
+        COMBO_OPACITY: 0.5                           // 콤보 반투명도
+    },
+    // [신규] 레이아웃 설정 (하드코딩 값 중앙화)
+    LAYOUT: {
+        HIT_LINE_Y: 0.7,           // 판정선 위치 (화면 비율)
+        SCORE_Y: 0.76,             // 점수 표시 위치
+        COMBO_Y: 150,              // 콤보 표시 Y 위치 (픽셀)
+        COMBO_FONT_SIZE: 96,       // 콤보 폰트 크기
+        COMBO_LABEL_SPACING: 55,   // COMBO 라벨과 숫자 간격
+        TOUCH_ZONE_TOP: 0.7,       // 터치 영역 시작 위치
+        SCORE_LABEL: 16,           // SCORE 라벨 폰트 크기
+        SCORE_FONT_SIZE: 28        // 점수 폰트 크기
+    },
+    // [신규] HP 설정
+    HP: {
+        INITIAL: 100,              // 초기 HP
+        MISS_PENALTY: 10,          // Miss 시 HP 감소량
+        PERFECT_HEAL: 2,           // Perfect 시 HP 회복량
+        GOOD_HEAL: 1,              // Good 시 HP 회복량
+        LOW_THRESHOLD: 40,         // HP 위험 임계값 (노란색)
+        CRITICAL_THRESHOLD: 20     // HP 위기 임계값 (빨간색)
+    },
+    // [신규] 점수 설정
+    SCORING: {
+        PERFECT_BASE: 100,         // Perfect 기본 점수
+        GOOD_BASE: 50,             // Good 기본 점수
+        COMBO_MULTIPLIER: {
+            50: 1.5,               // 50 콤보 이상 시 배율
+            20: 1.2                // 20 콤보 이상 시 배율
+        },
+        MILESTONES: [100, 50, 25, 10]  // 콤보 마일스톤
+    },
+    // [신규] 애니메이션 설정
+    ANIMATION: {
+        LANE_ACTIVE_FADE: 200,     // 레인 활성화 페이드 시간
+        LANE_HIT_FLASH: 150,       // 히트 플래시 지속 시간
+        SCREEN_GLOW_DURATION: 800, // 화면 글로우 지속 시간
+        PARTICLE_POOL_SIZE: 200    // 파티클 풀 크기
     }
 };

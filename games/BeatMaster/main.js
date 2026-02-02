@@ -6,6 +6,7 @@ import { CONFIG } from './src/config/GameConfig.js';
 import { MidiParser } from './src/audio/MidiParser.js';
 import { MidiPlayer } from './src/audio/MidiPlayer.js';
 import { DebugConsole } from './src/utils/DebugConsole.js';
+import { SettingsManager } from './src/ui/SettingsManager.js';
 
 class GameEngine {
     constructor() {
@@ -25,17 +26,23 @@ class GameEngine {
             canvasHeight: 0,
             currentMidiSource: null,
             keyPressed: {},
-            activeLongNotes: {},
+            activeLongNotes: [null, null, null, null],
             laneActive: [0, 0, 0, 0],
+            laneHitFlash: [0, 0, 0, 0],
+            hitLineFlash: 0,
+            comboAnimProgress: 0, // 0-1 for bounce animation
+            comboAnimScale: 1.0,
+            comboAnimY: 0,
             nextCheckIndex: 0,
             nextLaneNoteIndices: [0, 0, 0, 0],
             difficulty: CONFIG.NOTES.DIFFICULTY.DEFAULT,
             particles: [],
             gameplayChannels: [],
-            laneHitFlash: [0, 0, 0, 0],
             isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
             lastUIUpdate: { score: -1, combo: -1, time: "", hp: -1 },
             hp: 100,
+            isPaused: false,
+            songDuration: 0,
             stats: { perfect: 0, good: 0, miss: 0, maxCombo: 0 },
             lanePointerMap: {}
         };
@@ -51,7 +58,7 @@ class GameEngine {
         };
 
         // Initialize particle pool (reuse objects to reduce GC)
-        for (let i = 0; i < 200; i++) {
+        for (let i = 0; i < CONFIG.ANIMATION.PARTICLE_POOL_SIZE; i++) {
             this.cache.particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, color: "" });
         }
 
@@ -76,7 +83,17 @@ class GameEngine {
             hpBar: document.getElementById('hp-bar-fill'),
             resultOverlay: document.getElementById('result-overlay'),
             failOverlay: document.getElementById('game-over-overlay'),
-            gameContainer: document.getElementById('game-container')
+            gameContainer: document.getElementById('game-container'),
+            screenGlow: document.getElementById('screen-glow'),
+            transitionOverlay: document.getElementById('transition-overlay'),
+            visualEqualizer: document.getElementById('visual-equalizer'),
+            pauseOverlay: document.getElementById('pause-overlay'),
+            resumeBtn: document.getElementById('resume-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+            menuBtn: document.getElementById('menu-btn'),
+            progressFill: document.getElementById('progress-fill'),
+            currentTimeEl: document.getElementById('current-time'),
+            totalTimeEl: document.getElementById('total-time')
         };
 
         if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
@@ -105,6 +122,15 @@ class GameEngine {
             setTimeout(() => this.resize(), 300); // Give it time to settle
         });
         this.bindEvents();
+
+        // Initialize Settings Manager
+        try {
+            this.settingsManager = new SettingsManager(this);
+            console.log("[GameEngine] SettingsManager initialized successfully");
+        } catch (error) {
+            console.warn("[GameEngine] SettingsManager initialization failed:", error);
+            this.settingsManager = null;
+        }
 
         console.log("[GameEngine] Initialized with modules");
     }
@@ -143,7 +169,17 @@ class GameEngine {
         if (!this.audioCtx) {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             this.player = new MidiPlayer(this.audioCtx);
-            await this.player.init(CONFIG.AUDIO.SOUNDFONT_URL);
+
+            const soundfont = CONFIG.AUDIO.SOUNDFONTS[CONFIG.AUDIO.DEFAULT_SOUNDFONT];
+
+            console.log(`[GameEngine] Loading soundfont: ${soundfont.name} (${soundfont.size})`);
+            this.elements.startBtn.innerText = `LOADING AUDIO...`;
+            this.elements.startBtn.disabled = true;
+
+            await this.player.init(soundfont.url);
+
+            this.elements.startBtn.innerText = "START SESSION";
+            this.elements.startBtn.disabled = false;
         }
         if (this.audioCtx.state === 'suspended') {
             await this.audioCtx.resume();
@@ -209,10 +245,26 @@ class GameEngine {
         });
 
         window.addEventListener('keydown', (e) => {
-            if (e.repeat) return;
+            if (e.key === 'Escape' && this.state.isPlaying && !this.state.gameOver) {
+                this.togglePause();
+            }
             this.handleKeyDown(e);
         });
         window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+
+        // Pause menu controls
+        if (this.elements.pauseBtn) {
+            this.elements.pauseBtn.addEventListener('click', () => this.togglePause());
+        }
+        if (this.elements.resumeBtn) {
+            this.elements.resumeBtn.addEventListener('click', () => this.togglePause());
+        }
+        if (this.elements.restartBtn) {
+            this.elements.restartBtn.addEventListener('click', () => this.restart());
+        }
+        if (this.elements.menuBtn) {
+            this.elements.menuBtn.addEventListener('click', () => this.returnToMenu());
+        }
 
         // Universal Pointer Events on Canvas (Full-Lane Touch)
         this.elements.canvas.addEventListener('pointerdown', (e) => {
@@ -461,6 +513,13 @@ class GameEngine {
             n.missed = false;
         });
 
+        // Set song duration from notes
+        if (this.state.notes && this.state.notes.length > 0) {
+            const lastNote = this.state.notes[this.state.notes.length - 1];
+            this.state.songDuration = lastNote.time + (lastNote.duration || 0) + 2000; // Add 2s buffer
+            console.log(`[GameEngine] Song duration set to: ${this.state.songDuration}ms`);
+        }
+
         if (this.player) {
             this.player.stop(); // 0초로 리셋
         }
@@ -471,6 +530,9 @@ class GameEngine {
         this.state.gameStartTime = performance.now(); // [Fix] 시스템 기준 시작 시간 갱신 (재시작 시 필수!)
         this.state.startTime = this.state.gameStartTime;
         this.state.audioStarted = false; // 오디오 재생 여부 플래그
+
+        // Trigger game start flash transition
+        this.triggerTransition('flash');
 
         this.debug.log("게임을 시작합니다! (리드인 중...)", "info");
 
@@ -535,12 +597,53 @@ class GameEngine {
     }
 
     togglePause() {
-        if (!this.state.isPlaying) return;
+        if (!this.state.isPlaying || this.state.gameOver) return;
+
+        this.state.isPaused = !this.state.isPaused;
+
+        if (this.state.isPaused) {
+            // Pause the game
+            if (this.player) this.player.pause();
+            this.elements.pauseOverlay.style.display = 'flex';
+        } else {
+            // Resume the game
+            if (this.player) this.player.resume();
+            this.elements.pauseOverlay.style.display = 'none';
+        }
+    }
+
+    restart() {
+        // Stop current game
+        if (this.player) this.player.stop();
+        this.state.isPaused = false;
+        this.elements.pauseOverlay.style.display = 'none';
+
+        // Reset game state
+        this.state.currentTime = 0;
+        this.state.score = 0;
+        this.state.combo = 0;
+        this.state.notes = gameData.allNotes;
+        this.state.gameplayChannels = gameData.gameplayChannels;
+        this.state.songDuration = gameData.duration * 1000; // Convert to milliseconds
+        this.state.hp = 100;
+        this.state.gameOver = false;
+        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
+
+        // Restart from beginning
+        this.elements.startBtn.click();
+    }
+
+    returnToMenu() {
+        // Stop current game
+        if (this.player) this.player.stop();
         this.state.isPlaying = false;
-        this.player.pause();
+        this.state.isPaused = false;
+        this.elements.pauseOverlay.style.display = 'none';
+
+        // Show menu
         this.elements.overlay.classList.remove('hidden');
-        this.elements.overlay.classList.add('visible'); // [Fix] visible도 추가
-        this.elements.startBtn.innerText = "RESUME";
+        this.elements.overlay.classList.add('visible');
+        this.elements.startBtn.innerText = "START SESSION";
     }
 
     failGame() {
@@ -625,34 +728,46 @@ class GameEngine {
 
     calculateScore(type, combo) {
         let baseScore = 0;
-        if (type === "PERFECT") baseScore = 100;
-        else if (type === "GOOD") baseScore = 50;
+        if (type === "PERFECT") baseScore = CONFIG.SCORING.PERFECT_BASE;
+        else if (type === "GOOD") baseScore = CONFIG.SCORING.GOOD_BASE;
 
-        // Combo multiplier (simple example)
+        // Combo multiplier from CONFIG
         let comboMultiplier = 1;
-        if (combo >= 50) comboMultiplier = 1.5;
-        else if (combo >= 20) comboMultiplier = 1.2;
+        if (combo >= 50) comboMultiplier = CONFIG.SCORING.COMBO_MULTIPLIER[50];
+        else if (combo >= 20) comboMultiplier = CONFIG.SCORING.COMBO_MULTIPLIER[20];
 
         return Math.floor(baseScore * comboMultiplier);
     }
 
     applyJudgment(type) {
+        const prevCombo = this.state.combo;
+
         if (type === "MISS") {
             this.state.combo = 0;
-            this.state.hp = Math.max(0, this.state.hp - 10);
+            this.state.hp = Math.max(0, this.state.hp - CONFIG.HP.MISS_PENALTY);
             this.state.stats.miss++;
             this.debug.log("Oops! Miss", "error");
+
+            // Screen shake removed based on user request
+            // this.triggerScreenShake('light');
         } else {
             this.state.combo++;
             this.state.stats.maxCombo = Math.max(this.state.stats.maxCombo, this.state.combo);
+
+            // Trigger combo animation
+            this.state.comboAnimProgress = 1.0;
+
             if (type === "PERFECT") {
-                this.state.hp = Math.min(100, this.state.hp + 2);
+                this.state.hp = Math.min(100, this.state.hp + CONFIG.HP.PERFECT_HEAL);
                 this.state.stats.perfect++;
             } else {
-                this.state.hp = Math.min(100, this.state.hp + 1);
+                this.state.hp = Math.min(100, this.state.hp + CONFIG.HP.GOOD_HEAL);
                 this.state.stats.good++;
             }
         }
+
+        // Update HP visual effects
+        this.updateHpEffects();
 
         if (this.state.hp <= 0 && this.state.isPlaying) {
             this.failGame();
@@ -660,17 +775,110 @@ class GameEngine {
 
         this.state.score += this.calculateScore(type, this.state.combo);
 
+        // Judgment display with enhanced animation
         const el = this.elements.judgmentEl;
         el.innerText = type;
-        el.className = type.toLowerCase();
-
-        // 애니메이션 초기화 후 다시 적용
-        el.style.animation = 'none';
+        el.className = '';
         void el.offsetWidth; // reflow
-        el.style.animation = 'hit 0.3s ease-out forwards';
+
+        // Handle multi-word judgments (e.g., "Release PERFECT") by splitting into tokens
+        const tokens = type.toLowerCase().split(' ').filter(t => t.length > 0);
+        el.classList.add(...tokens, 'animate');
+
+        // Score pop animation
+        this.elements.scoreEl.classList.remove('pop');
+        void this.elements.scoreEl.offsetWidth;
+        this.elements.scoreEl.classList.add('pop');
+
+        // Combo pulse animation (Always trigger on increase)
+        if (this.state.combo > 0) {
+            this.elements.comboEl.classList.remove('pulse');
+            void this.elements.comboEl.offsetWidth;
+            this.elements.comboEl.classList.add('pulse');
+        }
 
         this.elements.scoreEl.innerText = String(this.state.score).padStart(6, '0');
         this.elements.comboEl.innerText = this.state.combo;
+    }
+
+    // === VISUAL EFFECTS HELPER METHODS ===
+
+    checkComboMilestone(prevCombo, newCombo) {
+        const milestones = [
+            { threshold: 100, class: 'perfect-chain', text: 'PERFECT CHAIN!' },
+            { threshold: 50, class: 'awesome', text: 'AWESOME!' },
+            { threshold: 25, class: 'cool', text: 'COOL!' },
+            { threshold: 10, class: 'nice', text: 'NICE!' }
+        ];
+
+        for (const milestone of milestones) {
+            if (prevCombo < milestone.threshold && newCombo >= milestone.threshold) {
+                this.showMilestone(milestone.text, milestone.class);
+                this.triggerComboMilestoneEffect(milestone.threshold);
+                break;
+            }
+        }
+    }
+
+    showMilestone(text, cssClass) {
+        const el = this.elements.milestoneDisplay;
+        if (!el) return;
+
+        el.innerText = text;
+        el.className = '';
+        void el.offsetWidth;
+        el.classList.add('show', cssClass);
+
+        // Screen glow effect
+        if (this.elements.screenGlow) {
+            this.elements.screenGlow.classList.add('active');
+            setTimeout(() => {
+                this.elements.screenGlow.classList.remove('active');
+            }, CONFIG.ANIMATION.SCREEN_GLOW_DURATION);
+        }
+    }
+
+    triggerComboMilestoneEffect(threshold) {
+        const comboEl = this.elements.comboEl;
+        if (!comboEl) return;
+
+        // Remove previous milestone classes
+        comboEl.classList.remove('milestone-10', 'milestone-25', 'milestone-50', 'milestone-100');
+        void comboEl.offsetWidth;
+
+        // Add new milestone class
+        comboEl.classList.add(`milestone-${threshold}`);
+
+        // Screen shake removed based on user request
+    }
+
+    triggerScreenShake(intensity = 'normal') {
+        // Disabled based on user request
+    }
+
+    updateHpEffects() {
+        const hpBar = this.elements.hpBar;
+        const screenGlow = this.elements.screenGlow;
+        if (!hpBar) return;
+
+        hpBar.classList.remove('low', 'critical');
+        if (screenGlow) screenGlow.classList.remove('danger');
+
+        if (this.state.hp <= CONFIG.HP.CRITICAL_THRESHOLD) {
+            hpBar.classList.add('critical');
+            if (screenGlow) screenGlow.classList.add('danger');
+        } else if (this.state.hp <= CONFIG.HP.LOW_THRESHOLD) {
+            hpBar.classList.add('low');
+        }
+    }
+
+    triggerTransition(type = 'flash') {
+        const overlay = this.elements.transitionOverlay;
+        if (!overlay) return;
+
+        overlay.classList.remove('fade-in', 'flash');
+        void overlay.offsetWidth;
+        overlay.classList.add(type);
     }
 
     loop(timestamp) {
@@ -783,9 +991,26 @@ class GameEngine {
             }
         }
 
-        // Update timers
-        this.state.laneActive = this.state.laneActive.map(t => Math.max(0, t - delta));
-        this.state.laneHitFlash = this.state.laneHitFlash.map(t => Math.max(0, t - delta));
+        // Update visual effects
+        this.state.laneActive = this.state.laneActive.map(v => Math.max(0, v - delta));
+        this.state.laneHitFlash = this.state.laneHitFlash.map(v => Math.max(0, v - delta));
+        this.state.hitLineFlash = Math.max(0, this.state.hitLineFlash - delta);
+
+        // Update combo animation
+        if (this.state.comboAnimProgress > 0) {
+            this.state.comboAnimProgress = Math.max(0, this.state.comboAnimProgress - delta / 350); // Slower for smoothness
+            const t = 1 - this.state.comboAnimProgress;
+            // Elastic easing for "chewy" feel
+            const elasticOut = (t) => {
+                const c4 = (2 * Math.PI) / 3;
+                return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+            };
+            this.state.comboAnimScale = 1 + 0.25 * (1 - elasticOut(t));
+            this.state.comboAnimY = 0; // No vertical movement
+        } else {
+            this.state.comboAnimScale = 1.0;
+            this.state.comboAnimY = 0;
+        }
         this.updateParticles(delta);
     }
 
@@ -877,7 +1102,7 @@ class GameEngine {
             const bctx = this.cache.bgCanvas.getContext('2d');
 
             // Side Rails (Gold/Metallic)
-            bctx.strokeStyle = 'rgba(255, 180, 0, 0.8)';
+            bctx.strokeStyle = CONFIG.VISUAL.COLORS.SIDE_RAIL;
             bctx.lineWidth = 4;
             bctx.beginPath();
             bctx.moveTo(2, 0);
@@ -889,7 +1114,7 @@ class GameEngine {
             // Lane Dividers
             for (let i = 1; i < CONFIG.NOTES.LANES; i++) {
                 const x = i * laneWidth;
-                bctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                bctx.strokeStyle = CONFIG.VISUAL.COLORS.LANE_DIVIDER;
                 bctx.lineWidth = 1;
                 bctx.beginPath();
                 bctx.moveTo(x, 0);
@@ -905,7 +1130,7 @@ class GameEngine {
 
             // Draw lane background if active or key pressed
             if (this.state.laneActive[i] > 0 || this.state.keyPressed[i]) {
-                const opacity = this.state.keyPressed[i] ? 1.0 : (this.state.laneActive[i] / 200);
+                const opacity = this.state.keyPressed[i] ? 1.0 : (this.state.laneActive[i] / CONFIG.ANIMATION.LANE_ACTIVE_FADE);
                 this.ctx.globalAlpha = Math.max(0, opacity);
                 this.ctx.fillStyle = laneGradients[i];
                 this.ctx.fillRect(x, 0, laneWidth, hitLineY);
@@ -914,13 +1139,13 @@ class GameEngine {
 
             // [New] Lane Hit Flash (Satisfying hit feedback)
             if (this.state.laneHitFlash[i] > 0) {
-                const opacity = this.state.laneHitFlash[i] / 150;
+                const opacity = this.state.laneHitFlash[i] / CONFIG.ANIMATION.LANE_HIT_FLASH;
                 this.ctx.globalAlpha = Math.max(0, opacity);
                 this.ctx.fillStyle = beamGradients[i];
                 this.ctx.fillRect(x + 5, 0, laneWidth - 10, hitLineY);
 
                 // Core bright beam
-                this.ctx.fillStyle = `rgba(255, 255, 255, 0.4)`;
+                this.ctx.fillStyle = CONFIG.VISUAL.COLORS.BEAM_CORE;
                 this.ctx.fillRect(x + laneWidth / 2 - 2, 0, 4, hitLineY);
             }
             this.ctx.globalAlpha = 1.0;
@@ -928,53 +1153,44 @@ class GameEngine {
 
 
         // [New] Guilty Gear Style HUD (Rendered on Canvas)
-        const hudY = 70;
-        this.ctx.font = '900 42px "Outfit"';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-
-        // Large background shadow for score
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2 + 2, hudY + 2);
-
-        this.ctx.fillStyle = '#fff';
-        this.ctx.shadowBlur = 15;
-        this.ctx.shadowColor = 'var(--accent)';
-        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2, hudY);
-        this.ctx.shadowBlur = 0;
+        // Score moved to bottom - removed from top
 
         if (this.state.combo > 0) {
-            const comboY = 150;
-            this.ctx.font = '700 16px "Outfit"';
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            this.ctx.fillText('COMBO', this.state.canvasWidth / 2, comboY - 45);
+            const layout = this.settingsManager ? this.settingsManager.getLayout() : null;
+            const comboY = layout ? layout.comboY : CONFIG.LAYOUT.COMBO_Y;
+            const comboFontSize = layout ? layout.comboFontSize : CONFIG.LAYOUT.COMBO_FONT_SIZE;
+            const comboLabelSpacing = layout ? layout.comboLabelSpacing : CONFIG.LAYOUT.COMBO_LABEL_SPACING;
 
-            const comboColor = this.state.combo >= 100 ? '#ffea00' : 'var(--accent)';
-            this.ctx.font = '900 72px "Outfit"';
+            this.ctx.font = CONFIG.VISUAL.FONTS.COMBO_LABEL;
+            this.ctx.fillStyle = CONFIG.VISUAL.FONTS.COMBO_LABEL_COLOR;
+            this.ctx.fillText('COMBO', this.state.canvasWidth / 2, comboY - comboLabelSpacing);
+
+            const comboColor = this.state.combo >= CONFIG.VISUAL.COMBO_GOLD_THRESHOLD ? CONFIG.VISUAL.COLORS.COMBO_GOLD : 'var(--accent)';
+            this.ctx.font = `900 ${comboFontSize}px "Outfit"`; // Larger font size
+            this.ctx.globalAlpha = CONFIG.VISUAL.COMBO_OPACITY; // Semi-transparent
             this.ctx.fillStyle = comboColor;
             this.ctx.shadowBlur = 25;
             this.ctx.shadowColor = comboColor;
-            this.ctx.fillText(this.state.combo, this.state.canvasWidth / 2, comboY);
 
-            // Subtle "Combo" underline like in Guilty Gear
-            this.ctx.fillStyle = comboColor;
-            this.ctx.globalAlpha = 0.5;
-            this.ctx.fillRect(this.state.canvasWidth / 2 - 40, comboY + 20, 80, 4);
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.shadowBlur = 0;
+            // Apply pulse animation
+            this.ctx.save();
+            this.ctx.translate(this.state.canvasWidth / 2, comboY);
+            this.ctx.scale(this.state.comboAnimScale, this.state.comboAnimScale);
+            this.ctx.fillText(this.state.combo, 0, 0);
+            this.ctx.restore();
+            this.ctx.globalAlpha = 1.0; // Reset alpha
+
+            // Combo underline removed per user request
         }
+        this.ctx.shadowBlur = 0;
 
+        // Notes rendering
         const timeWindow = this.state.canvasHeight / pixelsPerMs;
         const startTime = this.state.currentTime - 100;
         const endTime = this.state.currentTime + timeWindow + 100;
 
         for (let i = this.state.nextCheckIndex; i < this.state.notes.length; i++) {
             const note = this.state.notes[i];
-            if (note.time > endTime) break;
-
-            const isActiveLN = note.isLongNote && note.hit && !note.completed;
-            if (note.completed) continue;
-            if (!isActiveLN && (note.time + (note.duration || 0) < startTime)) continue;
 
             const x = note.lane * laneWidth + laneWidth / 2;
             const color = laneColors[note.lane];
@@ -1063,6 +1279,49 @@ class GameEngine {
             }
         });
         this.ctx.globalAlpha = 1.0;
+
+        // Score display - use settingsManager layout values
+        const scoreLayout = this.settingsManager ? this.settingsManager.getLayout() : null;
+        const scoreY = this.state.canvasHeight * (scoreLayout ? scoreLayout.scoreY : 0.76);
+        const scoreLabelSize = scoreLayout ? scoreLayout.scoreLabel : 16;
+        const scoreFontSize = scoreLayout ? scoreLayout.scoreFontSize : 28;
+
+        this.ctx.font = `600 ${scoreLabelSize}px "Outfit"`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        this.ctx.fillText('SCORE', this.state.canvasWidth / 2, scoreY - 15);
+
+        this.ctx.font = `900 ${scoreFontSize}px "Outfit"`;
+        this.ctx.fillStyle = '#fff';
+        this.ctx.shadowBlur = 8;
+        this.ctx.shadowColor = 'var(--accent)';
+        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2, scoreY + 15);
+        this.ctx.shadowBlur = 0;
+
+        // Update progress bar
+        if (this.elements.progressFill && this.state.songDuration > 0) {
+            const progress = (this.state.currentTime / this.state.songDuration) * 100;
+            this.elements.progressFill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+
+            // Format time as M:SS
+            const formatTime = (ms) => {
+                const totalSeconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            };
+
+            if (this.elements.currentTimeEl) {
+                this.elements.currentTimeEl.innerText = formatTime(this.state.currentTime);
+            }
+            if (this.elements.totalTimeEl) {
+                this.elements.totalTimeEl.innerText = formatTime(this.state.songDuration);
+            }
+        }
+
+        // Render layout editor visual guides (removed - no longer needed)
+        // Settings are now managed through settings overlay
     }
 
     resize() {
@@ -1075,7 +1334,23 @@ class GameEngine {
         this.ctx.scale(dpr, dpr);
 
         this.cache.laneWidth = this.state.canvasWidth / CONFIG.NOTES.LANES;
-        this.cache.hitLineY = this.state.canvasHeight - 50;
+
+        // Use settings manager layout if available
+        const layout = this.settingsManager ? this.settingsManager.getLayout() : null;
+        const hitLinePercent = layout ? layout.hitLineY : 0.7;
+        this.cache.hitLineY = this.state.canvasHeight * hitLinePercent;
+
+        // Update touch zone positioning to match settings
+        if (layout) {
+            const touchZones = document.querySelectorAll('.touch-zone');
+            const touchZoneTop = layout.touchZoneTop * 100;
+            const touchZoneHeight = 100 - touchZoneTop;
+            touchZones.forEach(zone => {
+                zone.style.top = `${touchZoneTop}%`;
+                zone.style.height = `${touchZoneHeight}%`;
+            });
+        }
+
         this.cache.pixelsPerMs = (CONFIG.NOTES.SCROLL_SPEED / 10) * 2;
         this.cache.laneColors = [0, 1, 2, 3].map(i => CONFIG.VISUAL.COLORS[`LANE_${i}`]);
 
