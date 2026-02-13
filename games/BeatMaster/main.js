@@ -1,323 +1,323 @@
 /**
- * BeatMaster - Refactored Main Entry (Module)
+ * BeatMaster - Refactored Main Entry (Canvas-Only Sprite-Based)
+ * 타이틀 화면 + 메뉴 + 노트 스프라이트 시트 슬라이싱 적용
  */
 
 import { CONFIG } from './src/config/GameConfig.js';
+import { SPRITE_CONFIG } from './src/config/SpriteConfig.js';
 import { MidiParser } from './src/audio/MidiParser.js';
 import { MidiPlayer } from './src/audio/MidiPlayer.js';
-import { DebugConsole } from './src/utils/DebugConsole.js';
-import { SettingsManager } from './src/ui/SettingsManager.js';
+import { SpriteManager } from './src/rendering/SpriteManager.js';
+import { BitmapFont } from './src/rendering/BitmapFont.js';
+import { UIRenderer } from './src/rendering/UIRenderer.js';
 
 class GameEngine {
     constructor() {
+        // Core Systems
         this.parser = new MidiParser();
         this.player = null;
         this.audioCtx = null;
-        this.debug = new DebugConsole('debug-console');
+        this.sprites = new SpriteManager();
+        this.bitmapFont = null;
+        this.uiRenderer = null;
 
+        // Canvas
+        this.canvas = document.getElementById('game-canvas');
+        this.ctx = this.canvas.getContext('2d');
+
+        // Game State
         this.state = {
+            scene: 'TITLE', // 'TITLE', 'MENU', 'PLAYING', 'PAUSED', 'RESULT', 'GAMEOVER'
             notes: [],
             isPlaying: false,
             startTime: 0,
             currentTime: 0,
             score: 0,
             combo: 0,
+            hp: 100,
             canvasWidth: 0,
             canvasHeight: 0,
             currentMidiSource: null,
             keyPressed: {},
             activeLongNotes: [null, null, null, null],
-            laneActive: [0, 0, 0, 0],
             laneHitFlash: [0, 0, 0, 0],
-            hitLineFlash: 0,
-            comboAnimProgress: 0, // 0-1 for bounce animation
-            comboAnimScale: 1.0,
-            comboAnimY: 0,
             nextCheckIndex: 0,
             nextLaneNoteIndices: [0, 0, 0, 0],
-            difficulty: CONFIG.NOTES.DIFFICULTY.DEFAULT,
+            difficulty: 1, // 0=EASY, 1=NORMAL, 2=HARD
             particles: [],
-            gameplayChannels: [],
             isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-            lastUIUpdate: { score: -1, combo: -1, time: "", hp: -1 },
-            hp: 100,
-            isPaused: false,
             songDuration: 0,
             stats: { perfect: 0, good: 0, miss: 0, maxCombo: 0 },
-            lanePointerMap: {}
+            lanePointerMap: {},
+            comboAnimProgress: 0,
+            comboAnimScale: 1.0,
+            judgmentText: '',
+            judgmentAlpha: 0,
+            songList: [],
+            selectedSongIndex: 0,
+            menuScrollY: 0,
+            titlePulse: 0, // 타이틀 애니메이션
+            menuFocus: 'song', // 'song', 'difficulty', 'play'
+            scrollSpeed: 2.0 // Default Speed
         };
 
+        // Rendering Cache
         this.cache = {
             laneWidth: 0,
             hitLineY: 0,
-            pixelsPerMs: 0,
-            laneGradients: [],
-            beamGradients: [],
+            horizonY: 0,
+            trackHeight: 0,
+            lookaheadMs: 2000,
+            laneColors: SPRITE_CONFIG.COLORS.LANE,
             particlePool: [],
-            activeParticles: []
+            activeParticles: [],
+            noteSheet: null,
+            noteSpriteSize: { w: 0, h: 0 }
         };
 
-        // Initialize particle pool (reuse objects to reduce GC)
-        for (let i = 0; i < CONFIG.ANIMATION.PARTICLE_POOL_SIZE; i++) {
-            this.cache.particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, color: "" });
+        // Initialize particle pool
+        for (let i = 0; i < 200; i++) {
+            this.cache.particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, color: '' });
         }
 
-        this.elements = {
-            overlay: document.getElementById('overlay'),
-            startBtn: document.getElementById('start-btn'),
-            pauseBtn: document.getElementById('pause-btn'),
-            songSelect: document.getElementById('song-select'),
-            midiUpload: document.getElementById('midi-upload'),
-            scrollSpeedInput: document.getElementById('scroll-speed'),
-            speedValue: document.getElementById('speed-value'),
-            scoreEl: document.getElementById('score'),
-            comboEl: document.getElementById('combo'),
-            judgmentEl: document.getElementById('judgment-display'),
-            canvas: document.getElementById('game-canvas'),
-            progressBar: document.getElementById('progress-bar-fill'),
-            timeDisplay: document.getElementById('time-display'),
-            diffBtns: document.querySelectorAll('.difficulty-btn'),
-            debugConsole: document.getElementById('debug-console'),
-            touchZones: document.querySelectorAll('.touch-zone'),
-            fullscreenBtn: document.getElementById('fullscreen-btn'),
-            hpBar: document.getElementById('hp-bar-fill'),
-            resultOverlay: document.getElementById('result-overlay'),
-            failOverlay: document.getElementById('game-over-overlay'),
-            gameContainer: document.getElementById('game-container'),
-            screenGlow: document.getElementById('screen-glow'),
-            transitionOverlay: document.getElementById('transition-overlay'),
-            visualEqualizer: document.getElementById('visual-equalizer'),
-            pauseOverlay: document.getElementById('pause-overlay'),
-            resumeBtn: document.getElementById('resume-btn'),
-            restartBtn: document.getElementById('restart-btn'),
-            menuBtn: document.getElementById('menu-btn'),
-            progressFill: document.getElementById('progress-fill'),
-            currentTimeEl: document.getElementById('current-time'),
-            totalTimeEl: document.getElementById('total-time')
-        };
-
-        if (this.elements.debugConsole) this.elements.debugConsole.style.display = 'none';
-        this.ctx = this.elements.canvas.getContext('2d');
+        this._lastTimestamp = 0;
         this.init();
     }
 
     async init() {
-        if (this.state.isMobile) {
-            document.body.classList.add('is-mobile');
-            // Force hide touch zones on mobile
-            const touchZonesEl = document.getElementById('touch-zones');
-            if (touchZonesEl) {
-                touchZonesEl.style.display = 'none';
-            }
-            // Force canvas to full height
-            if (this.elements.canvas) {
-                this.elements.canvas.style.height = '100%';
-            }
+        console.log('[GameEngine] Initializing Canvas-Only Sprite-Based System...');
+
+        // Load all sprite assets
+        await this.sprites.loadAll();
+
+        // Calculate note sprite size from loaded image
+        const noteImg = this.sprites.get('NOTE');
+        if (noteImg) {
+            const sheet = SPRITE_CONFIG.NOTE_SHEET;
+            this.cache.noteSpriteSize = {
+                w: noteImg.width / sheet.COLS,
+                h: noteImg.height / sheet.ROWS
+            };
+            console.log(`[GameEngine] Note sprite size: ${this.cache.noteSpriteSize.w}x${this.cache.noteSpriteSize.h}`);
         }
+
+        // Initialize font and UI renderer
+        this.bitmapFont = new BitmapFont(this.sprites);
+        this.uiRenderer = new UIRenderer(this.ctx, this.sprites, this.bitmapFont);
+
+        // Setup canvas
         this.resize();
-        this.loadSongList();
-        this.hideOverlays();
         window.addEventListener('resize', () => this.resize());
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.resize(), 300); // Give it time to settle
-        });
+        window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 300));
+
+        // Load song list
+        await this.loadSongList();
+
+        // Bind input events
         this.bindEvents();
 
-        // Initialize Settings Manager
-        try {
-            this.settingsManager = new SettingsManager(this);
-            console.log("[GameEngine] SettingsManager initialized successfully");
-        } catch (error) {
-            console.warn("[GameEngine] SettingsManager initialization failed:", error);
-            this.settingsManager = null;
-        }
+        // Start render loop
+        requestAnimationFrame((t) => this.loop(t));
 
-        console.log("[GameEngine] Initialized with modules");
+        console.log('[GameEngine] Initialization complete.');
     }
 
-    hideOverlays() {
-        this.elements.resultOverlay.classList.remove('visible');
-        this.elements.failOverlay.classList.remove('visible');
-        this.elements.overlay.classList.remove('hidden'); // Ensure main overlay is visible
+    resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+        this.state.canvasWidth = this.canvas.clientWidth;
+        this.state.canvasHeight = this.canvas.clientHeight;
+
+        this.canvas.width = this.state.canvasWidth * dpr;
+        this.canvas.height = this.state.canvasHeight * dpr;
+        this.ctx.scale(dpr, dpr);
+
+        // Update cache
+        this.cache.laneWidth = this.state.canvasWidth / CONFIG.NOTES.LANES;
+        this.cache.horizonY = this.state.canvasHeight * SPRITE_CONFIG.GAME.HORIZON_Y;
+        this.cache.hitLineY = this.state.canvasHeight * SPRITE_CONFIG.GAME.HIT_LINE_Y;
+        this.cache.trackHeight = this.cache.hitLineY - this.cache.horizonY;
+
+        // Update UI renderer
+        if (this.uiRenderer) {
+            this.uiRenderer.setSize(this.state.canvasWidth, this.state.canvasHeight);
+        }
     }
 
     async loadSongList() {
-        // 내장 곡 로드
-        // 로컬 Songs.json 로드 (동적 리스트)
         try {
             const res = await fetch('songs.json');
-            if (!res.ok) throw new Error("JSON fetch failed");
-            const internalSongs = await res.json();
-
-            internalSongs.forEach(song => {
-                const opt = document.createElement('option');
-                opt.value = song.url;
-                opt.innerText = song.name;
-                this.elements.songSelect.appendChild(opt);
-            });
-            console.log(`[GameEngine] Loaded ${internalSongs.length} songs from external config.`);
+            if (!res.ok) throw new Error('Failed to fetch songs.json');
+            this.state.songList = await res.json();
+            console.log(`[GameEngine] Loaded ${this.state.songList.length} songs`);
         } catch (e) {
-            console.warn("[GameEngine] Failed to load songs.json, falling back to static list or empty.", e);
-            // Fallback (Optional: Just leave empty or add a critical error msg)
-            const opt = document.createElement('option');
-            opt.innerText = "❌ No songs found (Run update_songs.bat)";
-            this.elements.songSelect.appendChild(opt);
-        }
-    }
-
-    async setupAudio() {
-        if (!this.audioCtx) {
-            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            this.player = new MidiPlayer(this.audioCtx);
-
-            const soundfont = CONFIG.AUDIO.SOUNDFONTS[CONFIG.AUDIO.DEFAULT_SOUNDFONT];
-
-            console.log(`[GameEngine] Loading soundfont: ${soundfont.name} (${soundfont.size})`);
-            this.elements.startBtn.innerText = `LOADING AUDIO...`;
-            this.elements.startBtn.disabled = true;
-
-            await this.player.init(soundfont.url);
-
-            this.elements.startBtn.innerText = "START SESSION";
-            this.elements.startBtn.disabled = false;
-        }
-        if (this.audioCtx.state === 'suspended') {
-            await this.audioCtx.resume();
+            console.warn('[GameEngine] Failed to load songs.json:', e);
+            this.state.songList = [];
         }
     }
 
     bindEvents() {
-        this.elements.startBtn.addEventListener('click', () => this.startSession());
-        this.elements.pauseBtn.addEventListener('click', () => this.togglePause());
-        this.elements.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-
-        this.elements.scrollSpeedInput.addEventListener('input', (e) => {
-            CONFIG.NOTES.SCROLL_SPEED = parseFloat(e.target.value);
-            this.elements.speedValue.innerText = CONFIG.NOTES.SCROLL_SPEED.toFixed(1);
-            // 실시간 렌더링 캐시 갱신
-            this.cache.pixelsPerMs = (CONFIG.NOTES.SCROLL_SPEED / 10) * 2;
-        });
-
-        this.elements.midiUpload.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const buffer = await file.arrayBuffer();
-                await this.loadMidiData(buffer);
-            }
-        });
-
-        this.elements.songSelect.addEventListener('change', async (e) => {
-            if (e.target.value) {
-                await this.loadMidiData(e.target.value);
-            }
-        });
-
-        // 난이도 버튼 이벤트 바인딩
-        this.elements.diffBtns.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const diff = btn.getAttribute('data-value');
-                this.state.difficulty = diff;
-
-                // UI 업데이트
-                this.elements.diffBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // 데이터 재처리 (이미 로드된 소스가 있다면)
-                if (this.state.currentMidiSource) {
-                    await this.loadMidiData(this.state.currentMidiSource);
-                }
-                console.log(`[GameEngine] Difficulty changed to: ${diff}`);
-            });
-        });
-
-        // Overlay buttons
-        document.querySelectorAll('.restart-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                this.hideOverlays(); // Likely redundant as startSession handles UI, but safe
-                await this.startSession();
-            });
-        });
-        document.querySelectorAll('.home-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.hideOverlays();
-                this.returnToMenu();
-            });
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.state.isPlaying && !this.state.gameOver) {
-                this.togglePause();
-            }
-            this.handleKeyDown(e);
-        });
+        // Keyboard
+        window.addEventListener('keydown', (e) => this.handleKeyDown(e));
         window.addEventListener('keyup', (e) => this.handleKeyUp(e));
 
-        // Pause menu controls
-        if (this.elements.pauseBtn) {
-            this.elements.pauseBtn.addEventListener('click', () => this.togglePause());
-        }
-        if (this.elements.resumeBtn) {
-            this.elements.resumeBtn.addEventListener('click', () => this.togglePause());
-        }
-        if (this.elements.restartBtn) {
-            this.elements.restartBtn.addEventListener('click', () => this.restart());
-        }
-        if (this.elements.menuBtn) {
-            this.elements.menuBtn.addEventListener('click', () => this.returnToMenu());
-        }
-
-        // Universal Pointer Events on Canvas (Full-Lane Touch)
-        this.elements.canvas.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            this.handlePointerDown(e, true);
-        });
-
-        // [New] Expanded Touch Support: Icons part at the bottom
-        this.elements.touchZones.forEach(zone => {
-            zone.addEventListener('pointerdown', (e) => {
-                e.preventDefault();
-                const lane = parseInt(zone.getAttribute('data-lane'));
-                this.state.lanePointerMap[e.pointerId] = lane;
-                this.triggerLaneDown(lane);
-                zone.classList.add('active');
-
-                // Track finger movement even if it leaves the specific element
-                zone.setPointerCapture(e.pointerId);
-            });
-        });
-
-        window.addEventListener('pointerup', (e) => {
-            this.handlePointerUp(e);
-        });
-
-        window.addEventListener('pointercancel', (e) => {
-            this.handlePointerUp(e);
-        });
+        // Pointer (touch + mouse)
+        this.canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+        window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+        window.addEventListener('pointercancel', (e) => this.handlePointerUp(e));
     }
 
-    handlePointerDown(e, fromCanvas = false) {
-        if (!this.state.isPlaying) return;
+    handleKeyDown(e) {
+        const key = e.key.toLowerCase();
 
-        let lane;
-        if (fromCanvas) {
-            const rect = this.elements.canvas.getBoundingClientRect();
-            if (!rect || rect.width === 0) return; // Defensive check
-
-            const x = e.clientX - rect.left;
-            const laneWidth = rect.width / CONFIG.NOTES.LANES;
-            lane = Math.floor(x / laneWidth);
-
-            // [FIX] Clamp lane to valid range to prevent out-of-bounds
-            lane = Math.max(0, Math.min(CONFIG.NOTES.LANES - 1, lane));
+        if (this.state.scene === 'TITLE') {
+            this.state.scene = 'MENU';
+            return;
         }
 
-        if (lane >= 0 && lane < CONFIG.NOTES.LANES) {
-            this.state.lanePointerMap[e.pointerId] = lane;
-            this.triggerLaneDown(lane);
-            this.elements.touchZones[lane]?.classList.add('active');
+        if (this.state.scene === 'MENU') {
+            if (key === 'arrowup') {
+                if (this.state.menuFocus === 'song') {
+                    this.state.selectedSongIndex = Math.max(0, this.state.selectedSongIndex - 1);
+                } else if (this.state.menuFocus === 'difficulty') {
+                    this.state.menuFocus = 'song';
+                } else if (this.state.menuFocus === 'play') {
+                    this.state.menuFocus = 'difficulty';
+                }
+            } else if (key === 'arrowdown') {
+                if (this.state.menuFocus === 'song') {
+                    if (this.state.selectedSongIndex < this.state.songList.length - 1) {
+                        this.state.selectedSongIndex++;
+                    } else {
+                        this.state.menuFocus = 'difficulty';
+                    }
+                } else if (this.state.menuFocus === 'difficulty') {
+                    this.state.menuFocus = 'play';
+                }
+            } else if (key === 'arrowleft') {
+                if (this.state.menuFocus === 'difficulty') {
+                    this.state.difficulty = Math.max(0, this.state.difficulty - 1);
+                }
+            } else if (key === 'arrowright') {
+                if (this.state.menuFocus === 'difficulty') {
+                    this.state.difficulty = Math.min(2, this.state.difficulty + 1);
+                }
+            } else if (key === 'enter' || key === ' ') {
+                if (this.state.menuFocus === 'play' || this.state.menuFocus === 'song') {
+                    this.startGame();
+                } else if (this.state.menuFocus === 'difficulty') {
+                    this.state.menuFocus = 'play';
+                }
+            }
+        } else if (this.state.scene === 'PLAYING') {
+            // Speed Control
+            if (e.code === 'F3') {
+                e.preventDefault();
+                this.state.scrollSpeed = Math.max(0.5, parseFloat((this.state.scrollSpeed - 0.1).toFixed(1)));
+                return;
+            }
+            if (e.code === 'F4') {
+                e.preventDefault();
+                this.state.scrollSpeed = Math.min(10.0, parseFloat((this.state.scrollSpeed + 0.1).toFixed(1)));
+                return;
+            }
 
-            // Pointer Capture to track movements outside canvas
-            this.elements.canvas.setPointerCapture(e.pointerId);
+            if (key === 'escape') {
+                this.togglePause();
+                return;
+            }
+
+            const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
+            if (lane !== -1) {
+                this.triggerLaneDown(lane);
+            }
+        } else if (this.state.scene === 'PAUSED') {
+            if (key === 'escape') {
+                this.togglePause();
+            }
+        } else if (this.state.scene === 'RESULT' || this.state.scene === 'GAMEOVER') {
+            this.returnToMenu();
+        }
+    }
+
+    handleKeyUp(e) {
+        if (this.state.scene !== 'PLAYING') return;
+        const key = e.key.toLowerCase();
+        const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
+        if (lane !== -1) {
+            this.triggerLaneUp(lane);
+        }
+    }
+
+    handlePointerDown(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (this.state.scene === 'TITLE') {
+            this.state.scene = 'MENU';
+            return;
+        }
+
+        if (this.state.scene === 'MENU') {
+            this.handleMenuClick(x, y);
+        } else if (this.state.scene === 'PLAYING') {
+            const laneWidth = this.state.canvasWidth / CONFIG.NOTES.LANES;
+            const lane = Math.floor(x / laneWidth);
+            if (lane >= 0 && lane < CONFIG.NOTES.LANES) {
+                this.state.lanePointerMap[e.pointerId] = lane;
+                this.triggerLaneDown(lane);
+                this.canvas.setPointerCapture(e.pointerId);
+            }
+        } else if (this.state.scene === 'PAUSED') {
+            this.togglePause();
+        } else if (this.state.scene === 'RESULT' || this.state.scene === 'GAMEOVER') {
+            this.returnToMenu();
+        }
+    }
+
+    handleMenuClick(x, y) {
+        const { canvasWidth, canvasHeight } = this.state;
+        const menuCfg = SPRITE_CONFIG.MENU;
+        const sidePad = canvasWidth * menuCfg.SIDE_PADDING;
+
+        // Song list area
+        const songListY = canvasHeight * menuCfg.SONG_LIST_Y;
+        const songListH = canvasHeight * menuCfg.SONG_LIST_HEIGHT;
+        const itemH = menuCfg.SONG_ITEM_HEIGHT;
+
+        if (y >= songListY && y < songListY + songListH) {
+            const idx = Math.floor((y - songListY) / itemH);
+            if (idx >= 0 && idx < this.state.songList.length) {
+                this.state.selectedSongIndex = idx;
+                this.state.menuFocus = 'song';
+                return;
+            }
+        }
+
+        // Difficulty area
+        const diffY = canvasHeight * menuCfg.DIFFICULTY_Y;
+        if (y >= diffY - 30 && y <= diffY + 30) {
+            const diffW = 100;
+            const totalW = 3 * diffW + 20;
+            const startX = (canvasWidth - totalW) / 2;
+            for (let i = 0; i < 3; i++) {
+                const bx = startX + i * (diffW + 10);
+                if (x >= bx && x <= bx + diffW) {
+                    this.state.difficulty = i;
+                    this.state.menuFocus = 'difficulty';
+                    return;
+                }
+            }
+        }
+
+        // Play button
+        const playY = canvasHeight * menuCfg.PLAY_BUTTON_Y;
+        const playW = 200;
+        const playH = 50;
+        const playX = (canvasWidth - playW) / 2;
+        if (x >= playX && x <= playX + playW && y >= playY - playH / 2 && y <= playY + playH / 2) {
+            this.startGame();
         }
     }
 
@@ -326,19 +326,118 @@ class GameEngine {
         if (lane !== undefined) {
             this.triggerLaneUp(lane);
             delete this.state.lanePointerMap[e.pointerId];
-            this.elements.touchZones[lane]?.classList.remove('active');
+        }
+    }
+
+    async startGame() {
+        if (this.state.songList.length === 0) return;
+        const song = this.state.songList[this.state.selectedSongIndex];
+        this.state.currentMidiSource = song.url;
+
+        // Setup audio FIRST, then load MIDI
+        await this.setupAudio();
+        await this.loadMidiData(song.url);
+        await this.loadMidiIntoPlayer();
+        this.beginGameplay();
+    }
+
+    async setupAudio() {
+        if (!this.audioCtx) {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            this.player = new MidiPlayer(this.audioCtx);
+            const soundfont = CONFIG.AUDIO.SOUNDFONTS[CONFIG.AUDIO.DEFAULT_SOUNDFONT];
+            console.log(`[GameEngine] Loading soundfont: ${soundfont.name}`);
+            await this.player.init(soundfont.url);
+        }
+        if (this.audioCtx.state === 'suspended') {
+            await this.audioCtx.resume();
+        }
+    }
+
+    async loadMidiData(src) {
+        console.log('[GameEngine] Loading MIDI...');
+        try {
+            const difficultyMap = ['EASY', 'NORMAL', 'HARD'];
+            const gameData = await this.parser.parse(src, difficultyMap[this.state.difficulty], this.state.isMobile);
+            this.state.notes = gameData.allNotes.map(n => ({
+                ...n,
+                hit: false,
+                completed: false,
+                missed: false
+            }));
+            this.state.backgroundMidi = gameData.backgroundMidi;
+            this.state.nextCheckIndex = 0;
+            this.state.nextLaneNoteIndices = [0, 0, 0, 0];
+
+            if (this.state.notes.length > 0) {
+                this.state.lastNoteEndTime = this.state.notes.reduce((max, n) =>
+                    Math.max(max, n.time + (n.duration || 0)), 0);
+            }
+
+            console.log(`[GameEngine] MIDI loaded: ${this.state.notes.length} notes`);
+        } catch (e) {
+            console.error('[GameEngine] MIDI load failed:', e);
+        }
+    }
+
+    async loadMidiIntoPlayer() {
+        if (!this.player) return;
+        if (this.state.backgroundMidi) {
+            await this.player.loadMidi(this.state.backgroundMidi);
+        }
+    }
+
+
+    beginGameplay() {
+        // Reset state
+        this.state.score = 0;
+        this.state.combo = 0;
+        this.state.hp = 100;
+        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
+        this.state.nextCheckIndex = 0;
+        this.state.nextLaneNoteIndices = [0, 0, 0, 0];
+        this.state.notes.forEach(n => {
+            n.hit = false;
+            n.completed = false;
+            n.missed = false;
+        });
+
+        if (this.state.notes.length > 0) {
+            const lastNote = this.state.notes[this.state.notes.length - 1];
+            this.state.songDuration = lastNote.time + (lastNote.duration || 0) + 2000;
         }
 
-        // Also ensure UI cleanup for the specific zone if it was captured
-        const zone = [...this.elements.touchZones].find(z => parseInt(z.getAttribute('data-lane')) === lane);
-        if (zone) zone.classList.remove('active');
+        if (this.player) this.player.stop();
+
+        this.state.scene = 'PLAYING';
+        this.state.isPlaying = true;
+        this.state.gameStartTime = performance.now();
+        this.state.audioStarted = false;
+
+        console.log('[GameEngine] Game started!');
+    }
+
+    togglePause() {
+        if (this.state.scene === 'PLAYING') {
+            this.state.scene = 'PAUSED';
+            this.state.isPlaying = false;
+            if (this.player) this.player.pause();
+        } else if (this.state.scene === 'PAUSED') {
+            this.state.scene = 'PLAYING';
+            this.state.isPlaying = true;
+            if (this.player) this.player.resume();
+        }
+    }
+
+    returnToMenu() {
+        this.state.scene = 'MENU';
+        this.state.isPlaying = false;
+        if (this.player) this.player.stop();
     }
 
     triggerLaneDown(lane) {
         if (!this.state.isPlaying) return;
         this.state.keyPressed[lane] = true;
-        // Don't set laneActive here, let checkHit handle it for "successful" hits
-        // this.state.laneActive[lane] = 200; 
         this.checkHit(lane);
     }
 
@@ -347,337 +446,30 @@ class GameEngine {
         this.state.keyPressed[lane] = false;
 
         const activeLN = this.state.activeLongNotes[lane];
-        if (activeLN) {
+        if (activeLN && !activeLN.completed) {
             const now = this.state.currentTime;
             const endTime = activeLN.time + activeLN.duration;
             const diff = Math.abs(now - endTime);
-            const releaseWindow = (CONFIG.NOTES.JUDGMENT.RELEASE_WINDOW || 0.250) * 1000;
-
-            if (activeLN.completed) return;
+            const releaseWindow = CONFIG.NOTES.JUDGMENT.RELEASE_WINDOW * 1000;
 
             if (diff <= releaseWindow) {
                 const judgment = this.getJudgment(diff / 1000 / 1.5);
-                this.applyJudgment(`Release ${judgment}`);
+                this.applyJudgment(judgment);
             } else {
-                this.applyJudgment("MISS");
+                this.applyJudgment('MISS');
             }
-
-            if (this.player && activeLN.originalPitch !== undefined) {
-                this.player.triggerNoteOff(activeLN.originalChannel, activeLN.originalPitch);
-            }
-            activeLN.completed = true; // Mark as completed
+            activeLN.completed = true;
             this.syncCheckIndex();
-            delete this.state.activeLongNotes[lane]; // Use delete for clarity
+            this.state.activeLongNotes[lane] = null;
         }
     }
 
-    handleKeyDown(e) {
-        if (!this.state.isPlaying) return;
-        const key = e.key.toLowerCase();
-        const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
-        if (lane !== -1) {
-            this.triggerLaneDown(lane);
-            this.elements.touchZones[lane]?.classList.add('active');
-        }
-    }
-
-    handleKeyUp(e) {
-        if (!this.state.isPlaying) return;
-        const key = e.key.toLowerCase();
-        const lane = CONFIG.NOTES.LANE_KEYS.indexOf(key);
-        if (lane !== -1) {
-            this.triggerLaneUp(lane);
-            this.elements.touchZones[lane]?.classList.remove('active');
-        }
-    }
-
-    // [신규] 완료된 노트를 건너뛰도록 공통 인덱스 동기화
     syncCheckIndex() {
         const notes = this.state.notes;
-        while (this.state.nextCheckIndex < notes.length && (notes[this.state.nextCheckIndex].completed || notes[this.state.nextCheckIndex].missed)) {
+        while (this.state.nextCheckIndex < notes.length &&
+            (notes[this.state.nextCheckIndex].completed || notes[this.state.nextCheckIndex].missed)) {
             this.state.nextCheckIndex++;
         }
-    }
-
-    async loadMidiData(src) {
-        this.elements.startBtn.disabled = true;
-        this.elements.startBtn.innerText = "PARSING...";
-
-        try {
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            console.log(`[GameEngine] Loading MIDI (isMobile: ${isMobile})`);
-            const gameData = await this.parser.parse(src, this.state.difficulty, isMobile);
-            this.state.notes = gameData.allNotes.map(n => ({
-                ...n,
-                hit: false,
-                completed: false,
-                missed: false
-            }));
-
-            // [핵심] 멜로디가 제거된 배경음 데이터를 상태에 보관
-            this.state.backgroundMidi = gameData.backgroundMidi;
-
-            // [중요] 배경음 미디 로드 대기 - 비동기 완료를 보장함
-            if (this.player && this.state.backgroundMidi) {
-                await this.player.loadMidi(this.state.backgroundMidi);
-                console.log("[GameEngine] Background MIDI binary finalized and loaded into sequencer.");
-            }
-
-            this.debug.log(`[GameEngine] 멜로디 분석 및 배경음 준비 완료!`, "success");
-
-            // 인텍스 초기화
-            this.state.nextCheckIndex = 0;
-            this.state.nextLaneNoteIndices = [0, 0, 0, 0];
-            this._lastTimestamp = 0;
-
-            this.state.currentMidiSource = src;
-
-            this.elements.startBtn.disabled = false;
-            this.elements.startBtn.innerText = "START SESSION";
-
-            const totalCount = gameData.allNotes.length;
-
-            // [New] Calculate exact visual end time (max of time + duration)
-            const lastNote = gameData.allNotes[gameData.allNotes.length - 1]; // Sorted by time
-            this.state.lastNoteEndTime = 0;
-            if (lastNote) {
-                // Iterate all to be safe or rely on sort? MidiParser sorts by time.
-                // But length might vary. Let's effectively find max (time + duration).
-                this.state.lastNoteEndTime = gameData.allNotes.reduce((max, n) => Math.max(max, n.time + (n.duration || 0)), 0);
-            }
-
-            this.debug.log(`곡 로드: ${totalCount}개 노트 [${this.state.difficulty}]. EndTime: ${this.state.lastNoteEndTime}ms`, 'success');
-            this.debug.log(`필터링 임계값: ${CONFIG.NOTES.DIFFICULTY.THRESHOLD[this.state.difficulty]}`, 'info');
-            console.log("[GameEngine] MIDI Loaded:", gameData);
-        } catch (e) {
-            alert("MIDI 로드 실패");
-            this.elements.startBtn.innerText = "START SESSION";
-        }
-    }
-
-    toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        }
-    }
-
-    async startSession() {
-        if (!this.state.currentMidiSource) {
-            alert("곡을 먼저 선택해주세요.");
-            return;
-        }
-
-        // [Optimize] Background loading during countdown
-        // Start loading MIDI/Audio and Countdown simultaneously
-        const loadingPromise = (async () => {
-            await this.setupAudio();
-            await this.loadMidiIntoPlayer();
-        })();
-
-        // UI Reset & Countdown
-        this.elements.overlay.classList.remove('visible');
-        this.elements.overlay.classList.add('hidden');
-        this.elements.gameContainer.style.visibility = 'visible';
-
-        // Wait for BOTH to complete (Parallel execution)
-        await Promise.all([loadingPromise, this.runCountdown()]);
-
-        // Start Game
-        this.beginGameplay();
-    }
-
-    /** [핵심] 곡을 실제로 시작하는 로직 (초기화 및 루프 시작) */
-    beginGameplay() {
-        // [Fix] 모바일 브라우저 주소창 변화 대응을 위해 약간의 지연 후 리사이즈
-        setTimeout(() => this.resize(), 100);
-
-        // 상태 초기화
-        this.state.score = 0;
-        this.state.combo = 0;
-        this.state.hp = 100;
-        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
-        this.state.nextCheckIndex = 0;
-        this.state.nextLaneNoteIndices = [0, 0, 0, 0];
-        this.state.lastUIUpdate = { score: -1, combo: -1, time: "", hp: -1 };
-
-        // 모든 노트 상태 초기화 (재시작 필수)
-        this.state.notes.forEach(n => {
-            n.hit = false;
-            n.completed = false;
-            n.missed = false;
-        });
-
-        // Set song duration from notes
-        if (this.state.notes && this.state.notes.length > 0) {
-            const lastNote = this.state.notes[this.state.notes.length - 1];
-            this.state.songDuration = lastNote.time + (lastNote.duration || 0) + 2000; // Add 2s buffer
-            console.log(`[GameEngine] Song duration set to: ${this.state.songDuration}ms`);
-        }
-
-        if (this.player) {
-            this.player.stop(); // 0초로 리셋
-        }
-
-        // (Countdown is now handled in startSession/restart logic)
-
-        this.state.isPlaying = true;
-        this.state.gameStartTime = performance.now(); // [Fix] 시스템 기준 시작 시간 갱신 (재시작 시 필수!)
-        this.state.startTime = this.state.gameStartTime;
-        this.state.audioStarted = false; // 오디오 재생 여부 플래그
-
-        // Trigger game start flash transition
-        this.triggerTransition('flash');
-
-        this.debug.log("게임을 시작합니다! (리드인 중...)", "info");
-
-        requestAnimationFrame((t) => this.loop(t));
-    }
-
-    async runCountdown() {
-        // [Fix] Use dedicated countdown element for better visibility
-        const el = document.getElementById('countdown-display');
-        const counts = ["3", "2", "1", "READY!"];
-
-        for (const msg of counts) {
-            el.innerText = msg;
-
-            // [Fix] Force Reflow to restart CSS Animation
-            el.className = 'countdown-text visible';
-            void el.offsetWidth; // Trigger reflow
-            el.className = 'countdown-text anim-popup visible zoom-in';
-
-            await new Promise(r => setTimeout(r, 1000));
-        }
-        el.className = '';
-        el.innerText = "";
-    }
-
-    async loadMidiIntoPlayer(optionalSrc) {
-        if (!this.player) return;
-
-        // 1. 이미 정제된 배경음 바이너리가 있다면 절대적 최우선 사용 (Overwriting 방지)
-        if (this.state.backgroundMidi) {
-            console.log("[GameEngine] Loading Pre-processed Background MIDI binary...");
-            await this.player.loadMidi(this.state.backgroundMidi);
-            return;
-        }
-
-        // 2. 소스 처리 (최초 로드 시)
-        const src = optionalSrc || this.state.currentMidiSource;
-        if (!src) return;
-
-        console.log("[GameEngine] Fetching original MIDI source for processing...");
-        let buffer;
-        if (typeof src === 'string') {
-            const res = await fetch(src);
-            buffer = await res.arrayBuffer();
-        } else {
-            buffer = src;
-        }
-        await this.player.loadMidi(buffer);
-    }
-
-    returnToMenu() {
-        this.state.isPlaying = false;
-        if (this.player) this.player.stop();
-
-        // 게임 컨테이너 숨기기
-        this.elements.gameContainer.style.visibility = 'hidden';
-
-        // 메인 메뉴 오버레이 표시
-        this.elements.overlay.classList.remove('hidden');
-        this.elements.overlay.classList.add('visible');
-        this.elements.startBtn.innerText = "START SESSION";
-    }
-
-    togglePause() {
-        if (!this.state.isPlaying || this.state.gameOver) return;
-
-        this.state.isPaused = !this.state.isPaused;
-
-        if (this.state.isPaused) {
-            // Pause the game
-            if (this.player) this.player.pause();
-            this.elements.pauseOverlay.style.display = 'flex';
-        } else {
-            // Resume the game
-            if (this.player) this.player.resume();
-            this.elements.pauseOverlay.style.display = 'none';
-        }
-    }
-
-    restart() {
-        // Stop current game
-        if (this.player) this.player.stop();
-        this.state.isPaused = false;
-        this.elements.pauseOverlay.style.display = 'none';
-
-        // Reset game state
-        this.state.currentTime = 0;
-        this.state.score = 0;
-        this.state.combo = 0;
-        this.state.notes = gameData.allNotes;
-        this.state.gameplayChannels = gameData.gameplayChannels;
-        this.state.songDuration = gameData.duration * 1000; // Convert to milliseconds
-        this.state.hp = 100;
-        this.state.gameOver = false;
-        this.state.stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
-
-        // Restart from beginning
-        this.elements.startBtn.click();
-    }
-
-    returnToMenu() {
-        // Stop current game
-        if (this.player) this.player.stop();
-        this.state.isPlaying = false;
-        this.state.isPaused = false;
-        this.elements.pauseOverlay.style.display = 'none';
-
-        // Show menu
-        this.elements.overlay.classList.remove('hidden');
-        this.elements.overlay.classList.add('visible');
-        this.elements.startBtn.innerText = "START SESSION";
-    }
-
-    failGame() {
-        this.state.isPlaying = false;
-        if (this.player) this.player.stop();
-        this.elements.failOverlay.classList.add('visible');
-    }
-
-    showResults() {
-        this.state.isPlaying = false;
-
-        // Calculate Rank
-        const total = this.state.stats.perfect + this.state.stats.good + this.state.stats.miss;
-        const accuracy = total > 0 ? (this.state.stats.perfect / total) : 0;
-        let rank = 'F';
-        if (accuracy > 0.95) rank = 'S';
-        else if (accuracy > 0.85) rank = 'A';
-        else if (accuracy > 0.70) rank = 'B';
-        else if (accuracy > 0.50) rank = 'C';
-
-        // Update Result UI
-        document.getElementById('result-rank').innerText = rank;
-        document.getElementById('stat-perfect').innerText = this.state.stats.perfect;
-        document.getElementById('stat-good').innerText = this.state.stats.good;
-        document.getElementById('stat-miss').innerText = this.state.stats.miss;
-        document.getElementById('stat-maxcombo').innerText = this.state.stats.maxCombo;
-        document.getElementById('stat-score').innerText = this.state.score.toString().padStart(6, '0');
-
-        this.elements.resultOverlay.classList.add('visible');
-    }
-
-    async start() {
-        if (this.state.isPlaying) return;
-        await this.beginGameplay();
     }
 
     checkHit(lane) {
@@ -695,16 +487,11 @@ class GameEngine {
                 if (diff <= windowSize) {
                     note.hit = true;
                     this.createParticles(lane);
-                    this.state.laneHitFlash[lane] = 150; // Flash for 150ms
-                    this.state.lastHitTime = performance.now();
+                    this.state.laneHitFlash[lane] = 150;
 
                     const judgment = this.getJudgment(diff / 1000);
                     this.applyJudgment(judgment);
 
-                    // [요청 반영] 키음 출력 제거
-                    // if (this.player && note.originalPitch !== undefined) { ... }
-
-                    // [핵심] 단노트는 즉시 완료처리, 롱노트는 유지 상태 돌입
                     if (note.isLongNote) {
                         this.state.activeLongNotes[lane] = note;
                     } else {
@@ -721,657 +508,49 @@ class GameEngine {
     }
 
     getJudgment(diff) {
-        if (diff <= CONFIG.NOTES.JUDGMENT.PERFECT) return "PERFECT";
-        if (diff <= CONFIG.NOTES.JUDGMENT.GOOD) return "GOOD";
-        return "MISS";
-    }
-
-    calculateScore(type, combo) {
-        let baseScore = 0;
-        if (type === "PERFECT") baseScore = CONFIG.SCORING.PERFECT_BASE;
-        else if (type === "GOOD") baseScore = CONFIG.SCORING.GOOD_BASE;
-
-        // Combo multiplier from CONFIG
-        let comboMultiplier = 1;
-        if (combo >= 50) comboMultiplier = CONFIG.SCORING.COMBO_MULTIPLIER[50];
-        else if (combo >= 20) comboMultiplier = CONFIG.SCORING.COMBO_MULTIPLIER[20];
-
-        return Math.floor(baseScore * comboMultiplier);
+        if (diff <= CONFIG.NOTES.JUDGMENT.PERFECT) return 'PERFECT';
+        if (diff <= CONFIG.NOTES.JUDGMENT.GOOD) return 'GOOD';
+        return 'MISS';
     }
 
     applyJudgment(type) {
-        const prevCombo = this.state.combo;
+        this.state.judgmentText = type;
+        this.state.judgmentAlpha = 1.0;
 
-        if (type === "MISS") {
+        if (type === 'MISS') {
             this.state.combo = 0;
             this.state.hp = Math.max(0, this.state.hp - CONFIG.HP.MISS_PENALTY);
             this.state.stats.miss++;
-            this.debug.log("Oops! Miss", "error");
-
-            // Screen shake removed based on user request
-            // this.triggerScreenShake('light');
         } else {
             this.state.combo++;
             this.state.stats.maxCombo = Math.max(this.state.stats.maxCombo, this.state.combo);
-
-            // Trigger combo animation
             this.state.comboAnimProgress = 1.0;
 
-            if (type === "PERFECT") {
+            if (type === 'PERFECT') {
                 this.state.hp = Math.min(100, this.state.hp + CONFIG.HP.PERFECT_HEAL);
                 this.state.stats.perfect++;
+                this.state.score += 100 * (this.state.combo >= 50 ? 1.5 : this.state.combo >= 20 ? 1.2 : 1);
             } else {
                 this.state.hp = Math.min(100, this.state.hp + CONFIG.HP.GOOD_HEAL);
                 this.state.stats.good++;
+                this.state.score += 50 * (this.state.combo >= 50 ? 1.5 : this.state.combo >= 20 ? 1.2 : 1);
             }
         }
-
-        // Update HP visual effects
-        this.updateHpEffects();
 
         if (this.state.hp <= 0 && this.state.isPlaying) {
             this.failGame();
         }
-
-        this.state.score += this.calculateScore(type, this.state.combo);
-
-        // Judgment display with enhanced animation
-        const el = this.elements.judgmentEl;
-        el.innerText = type;
-        el.className = '';
-        void el.offsetWidth; // reflow
-
-        // Handle multi-word judgments (e.g., "Release PERFECT") by splitting into tokens
-        const tokens = type.toLowerCase().split(' ').filter(t => t.length > 0);
-        el.classList.add(...tokens, 'animate');
-
-        // Score pop animation
-        this.elements.scoreEl.classList.remove('pop');
-        void this.elements.scoreEl.offsetWidth;
-        this.elements.scoreEl.classList.add('pop');
-
-        // Combo pulse animation (Always trigger on increase)
-        if (this.state.combo > 0) {
-            this.elements.comboEl.classList.remove('pulse');
-            void this.elements.comboEl.offsetWidth;
-            this.elements.comboEl.classList.add('pulse');
-        }
-
-        this.elements.scoreEl.innerText = String(this.state.score).padStart(6, '0');
-        this.elements.comboEl.innerText = this.state.combo;
     }
 
-    // === VISUAL EFFECTS HELPER METHODS ===
-
-    checkComboMilestone(prevCombo, newCombo) {
-        const milestones = [
-            { threshold: 100, class: 'perfect-chain', text: 'PERFECT CHAIN!' },
-            { threshold: 50, class: 'awesome', text: 'AWESOME!' },
-            { threshold: 25, class: 'cool', text: 'COOL!' },
-            { threshold: 10, class: 'nice', text: 'NICE!' }
-        ];
-
-        for (const milestone of milestones) {
-            if (prevCombo < milestone.threshold && newCombo >= milestone.threshold) {
-                this.showMilestone(milestone.text, milestone.class);
-                this.triggerComboMilestoneEffect(milestone.threshold);
-                break;
-            }
-        }
+    failGame() {
+        this.state.scene = 'GAMEOVER';
+        this.state.isPlaying = false;
+        if (this.player) this.player.stop();
     }
 
-    showMilestone(text, cssClass) {
-        const el = this.elements.milestoneDisplay;
-        if (!el) return;
-
-        el.innerText = text;
-        el.className = '';
-        void el.offsetWidth;
-        el.classList.add('show', cssClass);
-
-        // Screen glow effect
-        if (this.elements.screenGlow) {
-            this.elements.screenGlow.classList.add('active');
-            setTimeout(() => {
-                this.elements.screenGlow.classList.remove('active');
-            }, CONFIG.ANIMATION.SCREEN_GLOW_DURATION);
-        }
-    }
-
-    triggerComboMilestoneEffect(threshold) {
-        const comboEl = this.elements.comboEl;
-        if (!comboEl) return;
-
-        // Remove previous milestone classes
-        comboEl.classList.remove('milestone-10', 'milestone-25', 'milestone-50', 'milestone-100');
-        void comboEl.offsetWidth;
-
-        // Add new milestone class
-        comboEl.classList.add(`milestone-${threshold}`);
-
-        // Screen shake removed based on user request
-    }
-
-    triggerScreenShake(intensity = 'normal') {
-        // Disabled based on user request
-    }
-
-    updateHpEffects() {
-        const hpBar = this.elements.hpBar;
-        const screenGlow = this.elements.screenGlow;
-        if (!hpBar) return;
-
-        hpBar.classList.remove('low', 'critical');
-        if (screenGlow) screenGlow.classList.remove('danger');
-
-        if (this.state.hp <= CONFIG.HP.CRITICAL_THRESHOLD) {
-            hpBar.classList.add('critical');
-            if (screenGlow) screenGlow.classList.add('danger');
-        } else if (this.state.hp <= CONFIG.HP.LOW_THRESHOLD) {
-            hpBar.classList.add('low');
-        }
-    }
-
-    triggerTransition(type = 'flash') {
-        const overlay = this.elements.transitionOverlay;
-        if (!overlay) return;
-
-        overlay.classList.remove('fade-in', 'flash');
-        void overlay.offsetWidth;
-        overlay.classList.add(type);
-    }
-
-    loop(timestamp) {
-        if (!this.state.isPlaying) return;
-
-        requestAnimationFrame((t) => this.loop(t));
-
-        // [Fix] Calculate Time based on System Clock for accuracy & continuation after audio ends
-        const rawTime = timestamp - this.state.gameStartTime;
-        // Apply Audio Offset (latency correction)
-        this.state.currentTime = rawTime - (CONFIG.NOTES.JUDGMENT.AUDIO_OFFSET * 1000);
-
-        // Sync Audio only if drifting significantly (and audio is actually playing)
-        if (this.player && this.state.audioStarted) {
-            const audioTimeMs = this.player.currentTime * 1000;
-            const diff = Math.abs(this.state.currentTime - audioTimeMs);
-
-            // If drift is > 50ms and audio is playing, snap visual time to audio
-            // But allowed to exceed audio duration for finish sequence
-            if (diff > 50 && this.player.currentTime < this.player.duration) {
-                // this.state.gameStartTime = timestamp - ... (Re-sync logic could go here)
-                // For now, trust system time for smoothness, rely on audio for hits
-            }
-
-            // Start audio if lead-in passed
-            if (!this.state.audioStarted && this.state.currentTime >= 0) {
-                // Already handled by initial delay? 2.0s Lead-in is handled by negative start time
-            }
-        }
-
-        // Start Audio at 0.0s (Lead-in is -2000ms usually)
-        if (!this.state.audioStarted && this.state.currentTime >= 0) {
-            if (this.player) this.player.play();
-            this.state.audioStarted = true;
-        }
-
-        const delta = timestamp - this._lastTimestamp;
-        this._lastTimestamp = timestamp;
-
-        this.update(delta);
-        this.render();
-        this.updateUI();
-    }
-
-    update(delta) {
-        // Missed notes check (Sliding Window Optimization)
-        const missThreshold = this.state.currentTime - (CONFIG.NOTES.JUDGMENT.GOOD * 1000) - (CONFIG.NOTES.JUDGMENT.MISS_GRACE * 1000);
-
-        while (this.state.nextCheckIndex < this.state.notes.length) {
-            const note = this.state.notes[this.state.nextCheckIndex];
-
-            // 판정 유예 시간을 완전히 벗어난 경우
-            if (note.time < missThreshold) {
-                if (!note.hit && !note.completed) {
-                    note.completed = true;
-                    this.applyJudgment("MISS");
-                }
-
-                if (note.hit && !note.completed) {
-                    break;
-                }
-
-                this.state.nextCheckIndex++;
-
-                // 해당 레인의 타격 검색 인덱스 동기화
-                if (this.state.nextLaneNoteIndices[note.lane] < this.state.nextCheckIndex) {
-                    this.state.nextLaneNoteIndices[note.lane] = this.state.nextCheckIndex;
-                }
-            } else {
-                break;
-            }
-        }
-
-        // [교정] 롱노트 유지 상태 체크 (강제 오버홀드 미스 제거)
-        for (let i = 0; i < CONFIG.NOTES.LANES; i++) {
-            const activeLN = this.state.activeLongNotes[i];
-            if (activeLN) {
-                const now = this.state.currentTime;
-                const endTime = activeLN.time + activeLN.duration;
-                const releaseWindow = CONFIG.NOTES.JUDGMENT.GOOD * 1000; // 롱노트 떼는 판정 유예 시간
-
-                // 안전장치: 판정선을 너무 한참(1초 이상) 지나간 경우에만 강제 정리
-                if (now > endTime + 1000) {
-                    if (!activeLN.completed) {
-                        activeLN.completed = true;
-                        this.syncCheckIndex();
-                    }
-                    delete this.state.activeLongNotes[i];
-                    continue;
-                }
-
-                // 롱노트 유지 중인데 키를 떼서 미스 처리해야 하는 경우
-                if (!this.state.keyPressed[i] && now > endTime + releaseWindow) {
-                    delete this.state.activeLongNotes[i];
-                    activeLN.completed = true;
-                    this.applyJudgment("MISS");
-
-                    if (this.player && activeLN.originalPitch !== undefined) {
-                        this.player.triggerNoteOff(activeLN.originalChannel, activeLN.originalPitch);
-                    }
-
-                    this.syncCheckIndex();
-                    continue;
-                }
-
-                // 유지 중 시각 효과
-                if (this.state.keyPressed[i]) {
-                    if (Math.random() > 0.7) this.createParticles(i);
-                }
-            }
-        }
-
-        // Update visual effects
-        this.state.laneActive = this.state.laneActive.map(v => Math.max(0, v - delta));
-        this.state.laneHitFlash = this.state.laneHitFlash.map(v => Math.max(0, v - delta));
-        this.state.hitLineFlash = Math.max(0, this.state.hitLineFlash - delta);
-
-        // Update combo animation
-        if (this.state.comboAnimProgress > 0) {
-            this.state.comboAnimProgress = Math.max(0, this.state.comboAnimProgress - delta / 350); // Slower for smoothness
-            const t = 1 - this.state.comboAnimProgress;
-            // Elastic easing for "chewy" feel
-            const elasticOut = (t) => {
-                const c4 = (2 * Math.PI) / 3;
-                return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
-            };
-            this.state.comboAnimScale = 1 + 0.25 * (1 - elasticOut(t));
-            this.state.comboAnimY = 0; // No vertical movement
-        } else {
-            this.state.comboAnimScale = 1.0;
-            this.state.comboAnimY = 0;
-        }
-        this.updateParticles(delta);
-    }
-
-    updateUI() {
-        if (!this.player) return;
-        const duration = this.player.duration;
-        const current = this.player.currentTime;
-        const progress = (current / duration) * 100;
-        this.elements.progressBar.style.width = `${progress}%`;
-
-        const fmt = (seconds) => {
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.floor(seconds % 60);
-            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        };
-
-        const timeStr = `${fmt(current)} / ${fmt(duration)}`;
-        if (this.state.lastUIUpdate.time !== timeStr) {
-            this.elements.timeDisplay.innerText = timeStr;
-            this.state.lastUIUpdate.time = timeStr;
-        }
-
-        if (this.state.lastUIUpdate.score !== this.state.score) {
-            this.elements.scoreEl.innerText = this.state.score.toString().padStart(6, '0');
-            this.state.lastUIUpdate.score = this.state.score;
-        }
-
-        if (this.state.lastUIUpdate.combo !== this.state.combo) {
-            this.elements.comboEl.innerText = this.state.combo > 0 ? `${this.state.combo} COMBO` : "";
-            this.state.lastUIUpdate.combo = this.state.combo;
-        }
-
-        if (this.state.lastUIUpdate.hp !== this.state.hp) {
-            this.elements.hpBar.style.height = `${this.state.hp}%`;
-            this.state.lastUIUpdate.hp = this.state.hp;
-        }
-
-        // Auto-show results when finished
-        // [Fix] use lastNoteEndTime + 2000ms
-        const gameEndTime = this.state.lastNoteEndTime + 2000;
-
-        /* 
-           Debug Log: Monitor Time vs EndTime
-           Condition: currentTime must go BEYOND audio duration if last note is late
-        */
-        if (this.state.isPlaying && this.state.currentTime >= gameEndTime) {
-            console.log(`[GameEngine] Finish Triggered! Time: ${this.state.currentTime.toFixed(0)}, End: ${gameEndTime}`);
-            this.state.isPlaying = false;
-            if (this.player) this.player.stop();
-            this.finishGameSequence();
-        }
-    }
-
-    async finishGameSequence() {
-        // 1. Show "FINISH!" Message
-        const el = this.elements.judgmentEl;
-        const finishDiv = document.createElement('div');
-        finishDiv.className = 'finish-text';
-        finishDiv.innerText = 'FINISH!';
-        this.elements.gameContainer.appendChild(finishDiv);
-
-        this.debug.log("곡 완료! 결과를 집계합니다...", "success");
-
-        // 2. Wait 2 seconds
-        await new Promise(r => setTimeout(r, 2000));
-
-        // 3. Screen Flash Effect
-        const flash = document.createElement('div');
-        flash.className = 'screen-flash active';
-        document.body.appendChild(flash);
-        setTimeout(() => flash.remove(), 1000);
-
-        // 4. Show Results
-        finishDiv.remove();
-        this.showResults();
-    }
-
-    render() {
-        if (!this.player) return;
-        this.ctx.clearRect(0, 0, this.state.canvasWidth, this.state.canvasHeight);
-
-        const { laneWidth, hitLineY, pixelsPerMs, laneColors, laneGradients, beamGradients } = this.cache;
-
-        // [Optimize] Render Static Background from Cache Canvas
-        if (!this.cache.bgCanvas) {
-            this.cache.bgCanvas = document.createElement('canvas');
-            this.cache.bgCanvas.width = this.state.canvasWidth;
-            this.cache.bgCanvas.height = this.state.canvasHeight;
-            const bctx = this.cache.bgCanvas.getContext('2d');
-
-            // Side Rails (Gold/Metallic)
-            bctx.strokeStyle = CONFIG.VISUAL.COLORS.SIDE_RAIL;
-            bctx.lineWidth = 4;
-            bctx.beginPath();
-            bctx.moveTo(2, 0);
-            bctx.lineTo(2, this.state.canvasHeight);
-            bctx.moveTo(this.state.canvasWidth - 2, 0);
-            bctx.lineTo(this.state.canvasWidth - 2, this.state.canvasHeight);
-            bctx.stroke();
-
-            // Lane Dividers
-            for (let i = 1; i < CONFIG.NOTES.LANES; i++) {
-                const x = i * laneWidth;
-                bctx.strokeStyle = CONFIG.VISUAL.COLORS.LANE_DIVIDER;
-                bctx.lineWidth = 1;
-                bctx.beginPath();
-                bctx.moveTo(x, 0);
-                bctx.lineTo(x, this.state.canvasHeight);
-                bctx.stroke();
-            }
-        }
-        this.ctx.drawImage(this.cache.bgCanvas, 0, 0);
-
-        // Lane lines & Active feedback
-        for (let i = 0; i < CONFIG.NOTES.LANES; i++) {
-            const x = i * laneWidth;
-
-            // Draw lane background if active or key pressed
-            if (this.state.laneActive[i] > 0 || this.state.keyPressed[i]) {
-                const opacity = this.state.keyPressed[i] ? 1.0 : (this.state.laneActive[i] / CONFIG.ANIMATION.LANE_ACTIVE_FADE);
-                this.ctx.globalAlpha = Math.max(0, opacity);
-                this.ctx.fillStyle = laneGradients[i];
-                this.ctx.fillRect(x, 0, laneWidth, hitLineY);
-            }
-
-
-            // [New] Lane Hit Flash (Satisfying hit feedback)
-            if (this.state.laneHitFlash[i] > 0) {
-                const opacity = this.state.laneHitFlash[i] / CONFIG.ANIMATION.LANE_HIT_FLASH;
-                this.ctx.globalAlpha = Math.max(0, opacity);
-                this.ctx.fillStyle = beamGradients[i];
-                this.ctx.fillRect(x + 5, 0, laneWidth - 10, hitLineY);
-
-                // Core bright beam
-                this.ctx.fillStyle = CONFIG.VISUAL.COLORS.BEAM_CORE;
-                this.ctx.fillRect(x + laneWidth / 2 - 2, 0, 4, hitLineY);
-            }
-            this.ctx.globalAlpha = 1.0;
-        }
-
-
-        // [New] Guilty Gear Style HUD (Rendered on Canvas)
-        // Score moved to bottom - removed from top
-
-        if (this.state.combo > 0) {
-            const layout = this.settingsManager ? this.settingsManager.getLayout() : null;
-            const comboY = layout ? layout.comboY : CONFIG.LAYOUT.COMBO_Y;
-            const comboFontSize = layout ? layout.comboFontSize : CONFIG.LAYOUT.COMBO_FONT_SIZE;
-            const comboLabelSpacing = layout ? layout.comboLabelSpacing : CONFIG.LAYOUT.COMBO_LABEL_SPACING;
-
-            this.ctx.font = CONFIG.VISUAL.FONTS.COMBO_LABEL;
-            this.ctx.fillStyle = CONFIG.VISUAL.FONTS.COMBO_LABEL_COLOR;
-            this.ctx.fillText('COMBO', this.state.canvasWidth / 2, comboY - comboLabelSpacing);
-
-            const comboColor = this.state.combo >= CONFIG.VISUAL.COMBO_GOLD_THRESHOLD ? CONFIG.VISUAL.COLORS.COMBO_GOLD : 'var(--accent)';
-            this.ctx.font = `900 ${comboFontSize}px "Outfit"`; // Larger font size
-            this.ctx.globalAlpha = CONFIG.VISUAL.COMBO_OPACITY; // Semi-transparent
-            this.ctx.fillStyle = comboColor;
-            this.ctx.shadowBlur = 25;
-            this.ctx.shadowColor = comboColor;
-
-            // Apply pulse animation
-            this.ctx.save();
-            this.ctx.translate(this.state.canvasWidth / 2, comboY);
-            this.ctx.scale(this.state.comboAnimScale, this.state.comboAnimScale);
-            this.ctx.fillText(this.state.combo, 0, 0);
-            this.ctx.restore();
-            this.ctx.globalAlpha = 1.0; // Reset alpha
-
-            // Combo underline removed per user request
-        }
-        this.ctx.shadowBlur = 0;
-
-        // Notes rendering
-        const timeWindow = this.state.canvasHeight / pixelsPerMs;
-        const startTime = this.state.currentTime - 100;
-        const endTime = this.state.currentTime + timeWindow + 100;
-
-        for (let i = this.state.nextCheckIndex; i < this.state.notes.length; i++) {
-            const note = this.state.notes[i];
-
-            const x = note.lane * laneWidth + laneWidth / 2;
-            const color = laneColors[note.lane];
-            const isBeingHeld = note.isLongNote && note.hit && !note.completed;
-
-            const visualTime = isBeingHeld ? this.state.currentTime : note.time;
-            const y = hitLineY - (visualTime - this.state.currentTime) * pixelsPerMs;
-
-            this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = color;
-            this.ctx.fillStyle = color;
-
-            if (note.isLongNote) {
-                const endY = hitLineY - (note.time + note.duration - this.state.currentTime) * pixelsPerMs;
-                const barWidth = 30;
-
-                const grad = this.ctx.createLinearGradient(0, y, 0, endY);
-                grad.addColorStop(0, color);
-                grad.addColorStop(0.8, color);
-                grad.addColorStop(1, 'white');
-
-                this.ctx.fillStyle = grad;
-                this.ctx.fillRect(x - barWidth / 2, Math.min(y, endY), barWidth, Math.abs(y - endY));
-
-                this.ctx.beginPath();
-                this.ctx.fillStyle = color;
-                this.ctx.arc(x, y, 22, 0, Math.PI * 2);
-                this.ctx.fill();
-
-                this.ctx.beginPath();
-                this.ctx.fillStyle = 'white';
-                this.ctx.strokeStyle = color;
-                this.ctx.lineWidth = 3;
-                this.ctx.arc(x, endY, 20, 0, Math.PI * 2);
-                this.ctx.fill();
-                this.ctx.stroke();
-
-                this.ctx.beginPath();
-                this.ctx.fillStyle = color;
-                this.ctx.arc(x, endY, 8, 0, Math.PI * 2);
-                this.ctx.fill();
-            } else {
-                this.ctx.beginPath();
-                this.ctx.arc(x, y, 20, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-            this.ctx.shadowBlur = 0;
-        }
-
-        // [Enhanced] Thick Judgment Line (Satisfying DJMAX Style)
-        const hitFlash = Math.max(0, (200 - (performance.now() - this.state.lastHitTime)) / 200);
-
-        // Thick Background Glow (Cyan) - Enhanced thickness
-        const judgmentColor = 'var(--judgment)';
-        this.ctx.fillStyle = `rgba(0, 242, 255, ${0.15 + hitFlash * 0.5})`;
-        this.ctx.fillRect(0, hitLineY - 20 - hitFlash * 12, this.state.canvasWidth, 40 + hitFlash * 24);
-
-        // Solid Core Line - Thicker for better visibility
-        this.ctx.strokeStyle = judgmentColor;
-        this.ctx.lineWidth = 20 + hitFlash * 10; // [ENHANCED] Increased from 12 to 20
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, hitLineY);
-        this.ctx.lineTo(this.state.canvasWidth, hitLineY);
-        this.ctx.stroke();
-
-        if (!this.state.isMobile) {
-            this.ctx.shadowBlur = 30; // Increased blur for thickness
-            this.ctx.shadowColor = judgmentColor;
-            this.ctx.stroke();
-            this.ctx.shadowBlur = 0;
-        }
-
-        // Particles
-        const isMobile = this.state.isMobile;
-        this.cache.activeParticles.forEach(p => {
-            this.ctx.globalAlpha = p.life;
-            this.ctx.fillStyle = p.color;
-            if (isMobile) {
-                // Square particles are faster to render than arcs
-                const s = 4 * p.life;
-                this.ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
-            } else {
-                this.ctx.beginPath();
-                this.ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        });
-        this.ctx.globalAlpha = 1.0;
-
-        // Score display - use settingsManager layout values
-        const scoreLayout = this.settingsManager ? this.settingsManager.getLayout() : null;
-        const scoreY = this.state.canvasHeight * (scoreLayout ? scoreLayout.scoreY : 0.76);
-        const scoreLabelSize = scoreLayout ? scoreLayout.scoreLabel : 16;
-        const scoreFontSize = scoreLayout ? scoreLayout.scoreFontSize : 28;
-
-        this.ctx.font = `600 ${scoreLabelSize}px "Outfit"`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        this.ctx.fillText('SCORE', this.state.canvasWidth / 2, scoreY - 15);
-
-        this.ctx.font = `900 ${scoreFontSize}px "Outfit"`;
-        this.ctx.fillStyle = '#fff';
-        this.ctx.shadowBlur = 8;
-        this.ctx.shadowColor = 'var(--accent)';
-        this.ctx.fillText(String(this.state.score).padStart(6, '0'), this.state.canvasWidth / 2, scoreY + 15);
-        this.ctx.shadowBlur = 0;
-
-        // Update progress bar
-        if (this.elements.progressFill && this.state.songDuration > 0) {
-            const progress = (this.state.currentTime / this.state.songDuration) * 100;
-            this.elements.progressFill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
-
-            // Format time as M:SS
-            const formatTime = (ms) => {
-                const totalSeconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
-                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            };
-
-            if (this.elements.currentTimeEl) {
-                this.elements.currentTimeEl.innerText = formatTime(this.state.currentTime);
-            }
-            if (this.elements.totalTimeEl) {
-                this.elements.totalTimeEl.innerText = formatTime(this.state.songDuration);
-            }
-        }
-
-        // Render layout editor visual guides (removed - no longer needed)
-        // Settings are now managed through settings overlay
-    }
-
-    resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2.0); // Cap at 2.0 for performance
-        this.state.canvasWidth = this.elements.canvas.clientWidth;
-        this.state.canvasHeight = this.elements.canvas.clientHeight;
-
-        this.elements.canvas.width = this.state.canvasWidth * dpr;
-        this.elements.canvas.height = this.state.canvasHeight * dpr;
-        this.ctx.scale(dpr, dpr);
-
-        this.cache.laneWidth = this.state.canvasWidth / CONFIG.NOTES.LANES;
-
-        // Use settings manager layout if available
-        const layout = this.settingsManager ? this.settingsManager.getLayout() : null;
-        const hitLinePercent = layout ? layout.hitLineY : 0.7;
-        this.cache.hitLineY = this.state.canvasHeight * hitLinePercent;
-
-        // Update touch zone positioning to match settings
-        if (layout) {
-            const touchZones = document.querySelectorAll('.touch-zone');
-            const touchZoneTop = layout.touchZoneTop * 100;
-            const touchZoneHeight = 100 - touchZoneTop;
-            touchZones.forEach(zone => {
-                zone.style.top = `${touchZoneTop}%`;
-                zone.style.height = `${touchZoneHeight}%`;
-            });
-        }
-
-        this.cache.pixelsPerMs = (CONFIG.NOTES.SCROLL_SPEED / 10) * 2;
-        this.cache.laneColors = [0, 1, 2, 3].map(i => CONFIG.VISUAL.COLORS[`LANE_${i}`]);
-
-        // [Optimization] Cache Gradients
-        this.cache.laneGradients = this.cache.laneColors.map(color => {
-            const grad = this.ctx.createLinearGradient(0, this.cache.hitLineY, 0, 0);
-            grad.addColorStop(0, color);
-            grad.addColorStop(1, 'transparent');
-            return grad;
-        });
-
-        this.cache.beamGradients = this.cache.laneColors.map(color => {
-            const grad = this.ctx.createLinearGradient(0, this.cache.hitLineY, 0, 0);
-            grad.addColorStop(0, color);
-            grad.addColorStop(0.5, `${color}44`);
-            grad.addColorStop(1, 'transparent');
-            return grad;
-        });
-
-        // [Safe Optimize] Clear background cache on resize
-        this.cache.bgCanvas = null;
+    showResults() {
+        this.state.scene = 'RESULT';
+        this.state.isPlaying = false;
     }
 
     createParticles(lane) {
@@ -1381,7 +560,6 @@ class GameEngine {
         const count = this.state.isMobile ? 6 : 12;
 
         for (let i = 0; i < count; i++) {
-            // Pick from pool
             const p = this.cache.particlePool.find(obj => obj.life <= 0);
             if (p) {
                 p.x = x;
@@ -1399,18 +577,810 @@ class GameEngine {
     }
 
     updateParticles(delta) {
-        // [Optimize] Iterate active list instead of whole pool
         const active = this.cache.activeParticles;
         for (let i = active.length - 1; i >= 0; i--) {
             const p = active[i];
             p.x += p.vx * (delta / 16);
             p.y += p.vy * (delta / 16);
             p.life -= p.decay * (delta / 16);
-
             if (p.life <= 0) {
                 active.splice(i, 1);
             }
         }
+    }
+
+    // ==================== MAIN LOOP ====================
+
+    loop(timestamp) {
+        requestAnimationFrame((t) => this.loop(t));
+
+        const delta = timestamp - this._lastTimestamp;
+        this._lastTimestamp = timestamp;
+
+        // Update title animation
+        this.state.titlePulse = (this.state.titlePulse + delta * 0.003) % (Math.PI * 2);
+
+        if (this.state.scene === 'PLAYING') {
+            this.updateGameplay(timestamp, delta);
+        }
+
+        this.render();
+    }
+
+    updateGameplay(timestamp, delta) {
+        // Calculate current time
+        const rawTime = timestamp - this.state.gameStartTime;
+        this.state.currentTime = rawTime - (CONFIG.NOTES.JUDGMENT.AUDIO_OFFSET * 1000);
+
+        // Start audio at 0
+        if (!this.state.audioStarted && this.state.currentTime >= 0) {
+            if (this.player) this.player.play();
+            this.state.audioStarted = true;
+        }
+
+        // Check for missed notes
+        const missThreshold = this.state.currentTime - (CONFIG.NOTES.JUDGMENT.GOOD * 1000) - (CONFIG.NOTES.JUDGMENT.MISS_GRACE * 1000);
+        while (this.state.nextCheckIndex < this.state.notes.length) {
+            const note = this.state.notes[this.state.nextCheckIndex];
+            if (note.time < missThreshold) {
+                if (!note.hit && !note.completed) {
+                    note.completed = true;
+                    this.applyJudgment('MISS');
+                }
+                this.state.nextCheckIndex++;
+            } else {
+                break;
+            }
+        }
+
+        // Update animations
+        this.state.laneHitFlash = this.state.laneHitFlash.map(v => Math.max(0, v - delta));
+        if (this.state.comboAnimProgress > 0) {
+            this.state.comboAnimProgress = Math.max(0, this.state.comboAnimProgress - delta / 350);
+            this.state.comboAnimScale = 1 + 0.25 * (1 - this.state.comboAnimProgress);
+        } else {
+            this.state.comboAnimScale = 1.0;
+        }
+        if (this.state.judgmentAlpha > 0) {
+            this.state.judgmentAlpha = Math.max(0, this.state.judgmentAlpha - delta / 500);
+        }
+        this.updateParticles(delta);
+
+        // Check for game end
+        const gameEndTime = this.state.lastNoteEndTime + 2000;
+        if (this.state.currentTime >= gameEndTime) {
+            this.state.isPlaying = false;
+            if (this.player) this.player.stop();
+            this.showResults();
+        }
+    }
+
+    // ==================== RENDERING ====================
+
+    render() {
+        this.ctx.clearRect(0, 0, this.state.canvasWidth, this.state.canvasHeight);
+
+        switch (this.state.scene) {
+            case 'TITLE':
+                this.renderTitle();
+                break;
+            case 'MENU':
+                this.renderMenu();
+                break;
+            case 'PLAYING':
+                this.renderGame();
+                this.renderHUD();
+                break;
+            case 'PAUSED':
+                this.renderGame();
+                this.renderHUD();
+                this.uiRenderer.drawPauseOverlay();
+                break;
+            case 'RESULT':
+                this.renderGame();
+                const rank = this.calculateRank();
+                this.uiRenderer.drawResultScreen(this.state.stats, rank);
+                break;
+            case 'GAMEOVER':
+                this.renderGame();
+                this.uiRenderer.drawGameOverScreen();
+                break;
+        }
+    }
+
+    calculateRank() {
+        const total = this.state.stats.perfect + this.state.stats.good + this.state.stats.miss;
+        const accuracy = total > 0 ? (this.state.stats.perfect / total) : 0;
+        if (accuracy > 0.95) return 'S';
+        if (accuracy > 0.85) return 'A';
+        if (accuracy > 0.70) return 'B';
+        if (accuracy > 0.50) return 'C';
+        return 'F';
+    }
+
+    // ==================== TITLE SCREEN ====================
+
+    renderTitle() {
+        const { canvasWidth, canvasHeight } = this.state;
+
+        // Background
+        const bgImg = this.sprites.get('BACKGROUND');
+        if (bgImg) {
+            this.ctx.drawImage(bgImg, 0, 0, canvasWidth, canvasHeight);
+        }
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Title Image with pulse effect
+        const titleImg = this.sprites.get('TITLE');
+        const scale = 1 + Math.sin(this.state.titlePulse) * 0.05;
+
+        if (titleImg) {
+            const titleW = Math.min(500, canvasWidth * 0.8) * scale;
+            const titleH = titleW * (titleImg.height / titleImg.width);
+            const titleX = (canvasWidth - titleW) / 2;
+            const titleY = canvasHeight * 0.25 - titleH / 2;
+            this.ctx.drawImage(titleImg, titleX, titleY, titleW, titleH);
+        } else {
+            // Fallback text
+            this.ctx.save();
+            this.ctx.font = `bold ${80 * scale}px "Outfit", sans-serif`;
+            this.ctx.fillStyle = '#FF007A';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = '#FF007A';
+            this.ctx.shadowBlur = 30;
+            this.ctx.fillText('BEATMASTER', canvasWidth / 2, canvasHeight * 0.3);
+            this.ctx.restore();
+        }
+
+        // Sample note sprites display
+        const noteImg = this.sprites.get('NOTE');
+        if (noteImg) {
+            const spriteSize = this.cache.noteSpriteSize;
+            const displaySize = 60;
+            const spacing = 80;
+            const startX = canvasWidth / 2 - (1.5 * spacing);
+            const noteY = canvasHeight * 0.55;
+
+            for (let i = 0; i < 4; i++) {
+                const sprite = SPRITE_CONFIG.NOTE_SHEET.LANE_SPRITES[i];
+                const sx = sprite.col * spriteSize.w;
+                const sy = sprite.row * spriteSize.h;
+                this.ctx.drawImage(noteImg, sx, sy, spriteSize.w, spriteSize.h,
+                    startX + i * spacing - displaySize / 2, noteY - displaySize / 2, displaySize, displaySize);
+            }
+        }
+
+        // Press Start prompt
+        const alpha = 0.5 + Math.sin(this.state.titlePulse * 2) * 0.5;
+        this.ctx.save();
+        this.ctx.globalAlpha = alpha;
+        this.ctx.font = 'bold 28px "Outfit", sans-serif';
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('PRESS ANY KEY OR TAP TO START', canvasWidth / 2, canvasHeight * 0.75);
+        this.ctx.restore();
+
+        // Footer
+        this.ctx.save();
+        this.ctx.font = '14px "Outfit", sans-serif';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('© 2026 BeatMaster', canvasWidth / 2, canvasHeight - 30);
+        this.ctx.restore();
+    }
+
+    // ==================== MENU SCREEN ====================
+
+    renderMenu() {
+        const { canvasWidth, canvasHeight, songList, selectedSongIndex, difficulty, menuFocus } = this.state;
+        const menuCfg = SPRITE_CONFIG.MENU;
+        const colors = SPRITE_CONFIG.COLORS;
+        const difficulties = SPRITE_CONFIG.DIFFICULTIES;
+
+        // Background
+        const bgImg = this.sprites.get('BACKGROUND');
+        if (bgImg) {
+            this.ctx.drawImage(bgImg, 0, 0, canvasWidth, canvasHeight);
+        }
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        const sidePad = canvasWidth * menuCfg.SIDE_PADDING;
+
+        // ===== HEADER =====
+        this.ctx.save();
+        this.ctx.font = 'bold 36px "Outfit", sans-serif';
+        this.ctx.fillStyle = colors.PRIMARY;
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('SELECT SONG', canvasWidth / 2, canvasHeight * menuCfg.TITLE_Y);
+        this.ctx.restore();
+
+        // ===== SONG LIST =====
+        const songListY = canvasHeight * menuCfg.SONG_LIST_Y;
+        const songListH = canvasHeight * menuCfg.SONG_LIST_HEIGHT;
+        const itemH = menuCfg.SONG_ITEM_HEIGHT;
+
+        // Song list container
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        this.ctx.fillRect(sidePad, songListY, canvasWidth - sidePad * 2, songListH);
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(sidePad, songListY, canvasWidth - sidePad * 2, songListH);
+
+        // Clip for scrolling
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(sidePad, songListY, canvasWidth - sidePad * 2, songListH);
+        this.ctx.clip();
+
+        songList.forEach((song, i) => {
+            const itemY = songListY + i * itemH;
+            const isSelected = i === selectedSongIndex;
+            const isFocused = menuFocus === 'song' && isSelected;
+
+            // Item background
+            if (isSelected) {
+                this.ctx.fillStyle = isFocused ? 'rgba(255, 0, 122, 0.4)' : 'rgba(255, 0, 122, 0.2)';
+                this.ctx.fillRect(sidePad + 2, itemY + 2, canvasWidth - sidePad * 2 - 4, itemH - 4);
+            }
+
+            // Song name
+            this.ctx.font = isSelected ? 'bold 20px "Outfit", sans-serif' : '18px "Outfit", sans-serif';
+            this.ctx.fillStyle = isSelected ? '#FFFFFF' : 'rgba(255, 255, 255, 0.6)';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(song.name, sidePad + 20, itemY + itemH / 2);
+
+            // Indicator for selected
+            if (isSelected) {
+                this.ctx.fillStyle = colors.PRIMARY;
+                this.ctx.beginPath();
+                this.ctx.moveTo(sidePad + 8, itemY + itemH / 2 - 6);
+                this.ctx.lineTo(sidePad + 16, itemY + itemH / 2);
+                this.ctx.lineTo(sidePad + 8, itemY + itemH / 2 + 6);
+                this.ctx.fill();
+            }
+        });
+        this.ctx.restore();
+
+        // ===== DIFFICULTY SELECTION =====
+        const diffY = canvasHeight * menuCfg.DIFFICULTY_Y;
+        const diffW = 100;
+        const diffH = 40;
+        const totalDiffW = 3 * diffW + 20;
+        const diffStartX = (canvasWidth - totalDiffW) / 2;
+        const isFocusDiff = menuFocus === 'difficulty';
+
+        this.ctx.save();
+        this.ctx.font = 'bold 16px "Outfit", sans-serif';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('DIFFICULTY', canvasWidth / 2, diffY - 30);
+        this.ctx.restore();
+
+        difficulties.forEach((diff, i) => {
+            const bx = diffStartX + i * (diffW + 10);
+            const selected = i === difficulty;
+            const focused = selected && isFocusDiff;
+
+            // Button background
+            this.ctx.fillStyle = selected ? colors.PRIMARY : 'rgba(255, 255, 255, 0.1)';
+            if (focused) {
+                this.ctx.shadowColor = colors.PRIMARY;
+                this.ctx.shadowBlur = 15;
+            }
+            this.ctx.fillRect(bx, diffY - diffH / 2, diffW, diffH);
+            this.ctx.shadowBlur = 0;
+
+            // Border
+            this.ctx.strokeStyle = selected ? '#FFFFFF' : 'rgba(255, 255, 255, 0.3)';
+            this.ctx.lineWidth = selected ? 2 : 1;
+            this.ctx.strokeRect(bx, diffY - diffH / 2, diffW, diffH);
+
+            // Text
+            this.ctx.font = selected ? 'bold 16px "Outfit", sans-serif' : '14px "Outfit", sans-serif';
+            this.ctx.fillStyle = selected ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(diff, bx + diffW / 2, diffY);
+        });
+
+        // ===== PLAY BUTTON =====
+        const playY = canvasHeight * menuCfg.PLAY_BUTTON_Y;
+        const playW = 200;
+        const playH = 50;
+        const playX = (canvasWidth - playW) / 2;
+        const isFocusPlay = menuFocus === 'play';
+
+        // Button
+        this.ctx.save();
+        const playGrad = this.ctx.createLinearGradient(playX, playY - playH / 2, playX, playY + playH / 2);
+        playGrad.addColorStop(0, isFocusPlay ? '#FF3399' : colors.PRIMARY);
+        playGrad.addColorStop(1, isFocusPlay ? '#CC0066' : '#CC0066');
+        this.ctx.fillStyle = playGrad;
+
+        if (isFocusPlay) {
+            this.ctx.shadowColor = colors.PRIMARY;
+            this.ctx.shadowBlur = 25;
+        }
+
+        this.ctx.beginPath();
+        this.ctx.roundRect(playX, playY - playH / 2, playW, playH, 10);
+        this.ctx.fill();
+
+        this.ctx.font = 'bold 22px "Outfit", sans-serif';
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('▶ PLAY', canvasWidth / 2, playY);
+        this.ctx.restore();
+
+        // Instructions
+        this.ctx.save();
+        this.ctx.font = '14px "Outfit", sans-serif';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('↑↓ Select Song | ←→ Difficulty | ENTER Start', canvasWidth / 2, canvasHeight - 25);
+        this.ctx.restore();
+    }
+
+    // ==================== GAME RENDERING ====================
+
+    renderGame() {
+        let { laneWidth, hitLineY, horizonY, trackHeight, laneColors } = this.cache;
+        const lookaheadMs = 2000 / this.state.scrollSpeed; // Dynamic Speed
+        const canvasCenterX = this.state.canvasWidth / 2;
+
+        // 1. Background
+        const bgImg = this.sprites.get('BACKGROUND');
+        if (bgImg) {
+            this.ctx.drawImage(bgImg, 0, 0, this.state.canvasWidth, this.state.canvasHeight);
+        }
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        this.ctx.fillRect(0, 0, this.state.canvasWidth, this.state.canvasHeight);
+
+        // 2. 3D Procedural Track (Replaces Image)
+        this.drawProceduralTrack();
+
+        // 3. Lane Dividers (Included in drawProceduralTrack, logical placeholders here removed)
+
+        // 5. Notes (using sprite sheet slicing)
+        const timeLimit = this.state.currentTime + lookaheadMs;
+        const noteImg = this.sprites.get('NOTE');
+        const spriteSize = this.cache.noteSpriteSize;
+
+        for (let i = this.state.nextCheckIndex; i < this.state.notes.length; i++) {
+            const note = this.state.notes[i];
+            if (note.time > timeLimit) break;
+            if (note.time < this.state.currentTime - 100 && !note.isLongNote) continue;
+
+            const timeOffset = note.time - this.state.currentTime;
+            const normY = 1 - Math.max(0, Math.min(1, timeOffset / lookaheadMs));
+            const projectedY = horizonY + trackHeight * Math.pow(normY, 2.5);
+            const scale = 0.2 + 0.8 * Math.pow(normY, 3);
+
+            const laneWidthBase = this.state.canvasWidth / CONFIG.NOTES.LANES;
+            const laneOffset = note.lane - CONFIG.NOTES.LANES / 2 + 0.5;
+            const x = canvasCenterX + (laneOffset * (this.state.canvasWidth * scale / CONFIG.NOTES.LANES));
+
+            // Note Size Scaling (Fill the lane)
+            const noteSize = laneWidthBase * scale * 0.85; // Fill 85% of lane width
+
+            if (note.isLongNote) {
+                // Long note body
+                const endTimeOffset = (note.time + note.duration) - this.state.currentTime;
+                const endNormY = 1 - Math.max(0, Math.min(1, endTimeOffset / lookaheadMs));
+                const endProjectedY = horizonY + trackHeight * Math.pow(endNormY, 2.5);
+                const endScale = 0.2 + 0.8 * Math.pow(endNormY, 3);
+                const endX = canvasCenterX + (laneOffset * (this.state.canvasWidth * endScale / CONFIG.NOTES.LANES));
+                const endSize = laneWidthBase * endScale * 0.85;
+
+                // Gradient Body
+                const style = SPRITE_CONFIG.NOTE_STYLES[note.lane];
+                const bodyGrad = this.ctx.createLinearGradient(0, projectedY, 0, endProjectedY);
+                bodyGrad.addColorStop(0, style.gradient[0]); // Match note head color
+                bodyGrad.addColorStop(1, style.gradient[1]); // Match tail color
+
+                this.ctx.fillStyle = bodyGrad;
+                this.ctx.globalAlpha = 0.8; // Semi-transparent body
+
+                // Draw Trapezoid Body
+                this.ctx.beginPath();
+                this.ctx.moveTo(x - noteSize / 2, projectedY);
+                this.ctx.lineTo(x + noteSize / 2, projectedY);
+                this.ctx.lineTo(endX + endSize / 2, endProjectedY);
+                this.ctx.lineTo(endX - endSize / 2, endProjectedY);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Borders
+                this.ctx.strokeStyle = style.border;
+                this.ctx.lineWidth = 2 * scale;
+                this.ctx.stroke(); // Stroke the body
+
+                this.ctx.globalAlpha = 1.0;
+            }
+
+            // Note head - Hybrid Rendering (Sprite Preferred)
+            if (noteImg) {
+                const sheet = SPRITE_CONFIG.NOTE_SHEET;
+                const spriteInfo = sheet.LANE_SPRITES[note.lane];
+                const sw = sheet.SPRITE_WIDTH;
+                const sh = sheet.SPRITE_HEIGHT;
+                const sx = spriteInfo.col * sw;
+                const sy = spriteInfo.row * sh;
+
+                // Maintain aspect ratio
+                const aspectRatio = sh / sw;
+                const drawW = noteSize * 1.3; // Make sprite slightly larger to pop
+                const drawH = drawW * aspectRatio;
+
+                this.ctx.drawImage(noteImg, sx, sy, sw, sh, x - drawW / 2, projectedY - drawH / 2, drawW, drawH);
+            } else {
+                const style = SPRITE_CONFIG.NOTE_STYLES[note.lane];
+                this.drawProceduralNote(this.ctx, x, projectedY, noteSize, style);
+            }
+        }
+
+        // Judgment Line and Particles are handled in drawProceduralTrack to ensure correct layering
+    }
+
+    renderHUD() {
+        // HP Bar
+        this.uiRenderer.drawHPBar(this.state.hp);
+
+        // Score
+        this.uiRenderer.drawScore(Math.floor(this.state.score));
+
+        // Combo
+        this.uiRenderer.drawCombo(this.state.combo, this.state.comboAnimScale);
+
+        // Progress
+        if (this.player) {
+            const progress = this.player.currentTime / this.player.duration;
+            this.uiRenderer.drawProgressBar(progress);
+            this.uiRenderer.drawTimeDisplay(this.player.currentTime, this.player.duration);
+        }
+
+        // Judgment
+        this.uiRenderer.drawJudgment(this.state.judgmentText, this.state.judgmentAlpha);
+
+        // Speed Display
+        this.ctx.save();
+        this.ctx.font = 'bold 20px "Outfit", sans-serif';
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.textAlign = 'right';
+        this.ctx.shadowColor = 'black';
+        this.ctx.shadowBlur = 4;
+        this.ctx.fillText(`SPEED: ${this.state.scrollSpeed.toFixed(1)} (F3/F4)`, this.state.canvasWidth - 20, this.state.canvasHeight - 30);
+        this.ctx.restore();
+    }
+
+    // ==================== PROCEDURAL DRAWING ====================
+
+    drawProceduralNote(ctx, x, y, size, style) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Gradient Fill
+        const grad = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
+        grad.addColorStop(0, style.gradient[0]);
+        grad.addColorStop(1, style.gradient[1]);
+        ctx.fillStyle = grad;
+
+        // Shadow/Glow
+        ctx.shadowColor = style.border;
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 2;
+
+        // Draw Shape
+        ctx.beginPath();
+        if (style.shape === 'HEART') {
+            this.drawHeartPath(ctx, size);
+        } else {
+            this.drawStarPath(ctx, size);
+        }
+        ctx.fill();
+
+        // Border
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = style.border;
+        ctx.lineWidth = size * 0.08;
+        ctx.stroke();
+
+        // Inner Highlight (Gel Effect)
+        ctx.save();
+        ctx.clip(); // Clip to the shape
+
+        ctx.beginPath();
+        if (style.shape === 'HEART') {
+            // Heart highlight curve
+            ctx.ellipse(0, -size * 0.25, size * 0.3, size * 0.15, 0, 0, Math.PI * 2);
+        } else {
+            // Star highlight
+            ctx.ellipse(0, -size * 0.2, size * 0.2, size * 0.2, 0, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.restore();
+    }
+
+    // Improved Plump Heart Shape
+    drawHeartPath(ctx, size) {
+        const w = size;
+        const h = size;
+        ctx.beginPath();
+        // Plumper, rounder heart
+        ctx.moveTo(0, h * 0.3);
+        ctx.bezierCurveTo(w / 2, -h * 0.3, w, h * 0.45, 0, h);
+        ctx.bezierCurveTo(-w, h * 0.45, -w / 2, -h * 0.3, 0, h * 0.3);
+        ctx.closePath();
+    }
+
+    drawStarPath(ctx, size) {
+        const R = size * 0.5; // Outer radius
+        const r = size * 0.25; // Inner radius
+        const spikes = 5;
+
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+            const radius = (i % 2 === 0) ? R : r;
+            const angle = (Math.PI / spikes) * i - Math.PI / 2;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.lineJoin = 'round'; // Soften spikes
+    }
+
+    // ==================== PROCEDURAL TRACK RENDERING (Rainbow Style) ====================
+
+    drawProceduralTrack() {
+        const { canvasWidth, canvasHeight } = this.state;
+        const { horizonY, hitLineY } = this.cache;
+        const canvasCenterX = canvasWidth / 2;
+        const styles = SPRITE_CONFIG.LANE_STYLES;
+        const noteStyles = SPRITE_CONFIG.NOTE_STYLES;
+
+        // Perspective Setup
+        const laneCount = CONFIG.NOTES.LANES;
+        const bottomWidth = canvasWidth * 0.9;
+        const topWidth = canvasWidth * 0.15;
+        const totalHeight = canvasHeight;
+
+        const getX = (laneIndex, yRatio) => {
+            const w = topWidth + (bottomWidth - topWidth) * yRatio;
+            const xOffset = (laneIndex - laneCount / 2) * (w / laneCount);
+            return canvasCenterX + xOffset;
+        };
+
+        const yTop = horizonY;
+        const yBottom = totalHeight;
+
+        // 1. Dark Space Background (Global)
+        const bgGrad = this.ctx.createLinearGradient(0, yTop, 0, yBottom);
+        bgGrad.addColorStop(0, styles.BACKGROUND_GRADIENT[0]);
+        bgGrad.addColorStop(1, styles.BACKGROUND_GRADIENT[1]);
+        this.ctx.fillStyle = bgGrad;
+
+        // Full Track Trapezoid
+        this.ctx.beginPath();
+        this.ctx.moveTo(getX(0, 0), yTop);
+        this.ctx.lineTo(getX(laneCount, 0), yTop);
+        this.ctx.lineTo(getX(laneCount, 1), yBottom);
+        this.ctx.lineTo(getX(0, 1), yBottom);
+        this.ctx.fill();
+
+        // 2. Individual Lane Beams (Rainbow Road)
+        this.ctx.globalCompositeOperation = 'screen'; // Make it glowy
+
+        for (let i = 0; i < laneCount; i++) {
+            // Beam Gradient (Top Color -> Lane Color)
+            // Use NOTE_STYLES gradient for beams
+            const laneColor = noteStyles[i].gradient;
+
+            // Interaction State
+            const isPressed = this.state.keyPressed[i];
+            const flash = this.state.laneHitFlash[i];
+
+            // Base Opacity (Always visible slightly) + Active Opacity
+            let opacity = 0.15;
+            if (isPressed) opacity = 0.8;
+            else if (flash > 0) opacity = 0.15 + (flash / 150) * 0.6;
+
+            if (opacity > 0.01) {
+                const beamGrad = this.ctx.createLinearGradient(0, yTop, 0, yBottom);
+                beamGrad.addColorStop(0, laneColor[0]);   // Beam Top Color
+                beamGrad.addColorStop(0.5, laneColor[1]); // Mid
+                beamGrad.addColorStop(1, 'rgba(0,0,0,0)'); // Fade at bottom (or near bar)
+
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = beamGrad;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(getX(i, 0), yTop);
+                this.ctx.lineTo(getX(i + 1, 0), yTop);
+                this.ctx.lineTo(getX(i + 1, 1), yBottom);
+                this.ctx.lineTo(getX(i, 1), yBottom);
+                this.ctx.fill();
+
+                // Sparkles (Active only)
+                if ((isPressed || flash > 0) && Math.random() < 0.3) {
+                    this.createSparkle(i, getX(i + 0.5, 1), yBottom);
+                }
+            }
+        }
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.globalAlpha = 1.0;
+
+        // 3. Lane Dividers
+        this.ctx.strokeStyle = styles.DIVIDER_COLOR;
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        for (let i = 1; i < laneCount; i++) {
+            this.ctx.moveTo(getX(i, 0), yTop);
+            this.ctx.lineTo(getX(i, 1), yBottom);
+        }
+        this.ctx.stroke();
+
+        // 4. Side Borders (Neon)
+        this.ctx.shadowBlur = 20;
+        this.ctx.shadowColor = styles.BORDER_GLOW;
+        this.ctx.strokeStyle = styles.BORDER_COLOR;
+        this.ctx.lineWidth = styles.BORDER_WIDTH;
+        this.ctx.beginPath();
+        // Left
+        this.ctx.moveTo(getX(0, 0), yTop);
+        this.ctx.lineTo(getX(0, 1), yBottom);
+        // Right
+        this.ctx.moveTo(getX(laneCount, 0), yTop);
+        this.ctx.lineTo(getX(laneCount, 1), yBottom);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+
+        // 5. Judgment Bar (Glossy Glass)
+        const jY = hitLineY;
+        const jLeft = getX(0, (jY - horizonY) / (yBottom - horizonY));
+        const jRight = getX(laneCount, (jY - horizonY) / (yBottom - horizonY));
+        const barHeight = styles.JUDGMENT_LINE_HEIGHT;
+
+        // Glowy Background for Bar
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+
+        // Gradient Bar
+        const barGrad = this.ctx.createLinearGradient(jLeft, 0, jRight, 0);
+        // Match lane colors across the bar
+        barGrad.addColorStop(0.12, noteStyles[0].glow);
+        barGrad.addColorStop(0.37, noteStyles[1].glow);
+        barGrad.addColorStop(0.62, noteStyles[2].glow);
+        barGrad.addColorStop(0.87, noteStyles[3].glow);
+
+        this.ctx.fillStyle = barGrad;
+        this.ctx.globalAlpha = 0.3; // Semi-transparent
+        this.ctx.beginPath();
+        this.ctx.roundRect(jLeft - 10, jY - barHeight / 2, (jRight - jLeft) + 20, barHeight, 10);
+        this.ctx.fill();
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.shadowBlur = 0;
+
+        // White Border for Bar
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+
+        // 6. Judgment Icons (Jelly Hearts)
+        const laneWidthAtHit = (jRight - jLeft) / laneCount;
+        for (let i = 0; i < laneCount; i++) {
+            const laneInfo = styles.JUDGMENT_ICONS[i];
+            const px = jLeft + laneWidthAtHit * i + laneWidthAtHit / 2;
+            const py = jY;
+            const iconSize = laneWidthAtHit * 0.9 * (styles.ICON_SCALE || 1.2);
+            const laneStyle = noteStyles[i];
+
+            this.ctx.save();
+            this.ctx.translate(px, py);
+
+            // Press Animation
+            if (this.state.keyPressed[i]) {
+                this.ctx.scale(0.9, 0.9);
+                this.ctx.shadowColor = laneInfo.color;
+                this.ctx.shadowBlur = 25;
+            } else {
+                this.ctx.shadowColor = laneInfo.color;
+                this.ctx.shadowBlur = 10;
+            }
+
+            // Body Gradient (Vertical)
+            const iconGrad = this.ctx.createLinearGradient(0, -iconSize / 2, 0, iconSize / 2);
+            iconGrad.addColorStop(0, laneStyle.gradient[0]);
+            iconGrad.addColorStop(1, laneStyle.gradient[1]);
+            this.ctx.fillStyle = iconGrad;
+
+            if (laneInfo.shape === 'HEART') {
+                this.drawHeartPath(this.ctx, iconSize);
+            }
+            this.ctx.fill();
+
+            // Jelly Highlight (Top Left Ellipse)
+            this.ctx.globalCompositeOperation = 'source-atop';
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(-iconSize * 0.2, -iconSize * 0.2, iconSize * 0.25, iconSize * 0.15, -0.5, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Rim Light (Bottom Right)
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(iconSize * 0.2, iconSize * 0.2, iconSize * 0.2, iconSize * 0.1, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // Stroke
+            this.ctx.globalCompositeOperation = 'source-over';
+            this.ctx.strokeStyle = '#FFFFFF';
+            this.ctx.lineWidth = 2;
+            if (laneInfo.shape === 'HEART') {
+                this.drawHeartPath(this.ctx, iconSize);
+            }
+            this.ctx.stroke();
+
+            this.ctx.restore();
+        }
+
+        // 7. Update Particles
+        this.updateAndDrawParticles();
+    }
+
+    createSparkle(lane, startX, startY) {
+        if (this.cache.activeParticles.length > 300) return; // Limit count
+
+        const pool = this.cache.particlePool;
+        let p = pool.length > 0 ? pool.pop() : { x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '' };
+
+        p.x = startX + (Math.random() - 0.5) * 40; // Random spread
+        p.y = startY;
+        p.vx = (Math.random() - 0.5) * 2;
+        p.vy = -(Math.random() * 5 + 5); // Rise up fast
+        p.life = 1.0;
+        p.color = SPRITE_CONFIG.LANE_STYLES.SPARKLE_COLOR;
+
+        this.cache.activeParticles.push(p);
+    }
+
+    updateAndDrawParticles() {
+        // Use additive blending for sparkles
+        this.ctx.globalCompositeOperation = 'lighter';
+        this.ctx.fillStyle = '#FFFFFF';
+
+        for (let i = this.cache.activeParticles.length - 1; i >= 0; i--) {
+            const p = this.cache.activeParticles[i];
+
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.02;
+
+            if (p.life <= 0) {
+                this.cache.activeParticles.splice(i, 1);
+                this.cache.particlePool.push(p); // Return to pool
+                continue;
+            }
+
+            this.ctx.globalAlpha = p.life;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, Math.random() * 3 + 1, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.globalCompositeOperation = 'source-over';
     }
 }
 

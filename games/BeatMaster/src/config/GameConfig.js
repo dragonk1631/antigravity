@@ -50,10 +50,10 @@ export const CONFIG = {
     },
     VISUAL: {
         COLORS: {
-            LANE_0: '#FF66B2', // Hwasa-han Pink
-            LANE_1: '#ffcc00', // Yellow (Swapped)
-            LANE_2: '#00f2ff', // Cyan (Swapped)
-            LANE_3: '#00ff66', // Green
+            LANE_0: '#FF0055', // Neon Pink/Red
+            LANE_1: '#FFD700', // Neon Gold
+            LANE_2: '#00FFFF', // Neon Cyan
+            LANE_3: '#39FF14', // Neon Green
             SIDE_RAIL: 'rgba(255, 180, 0, 0.8)',      // 사이드 레일 색상
             LANE_DIVIDER: 'rgba(255, 255, 255, 0.05)', // 레인 구분선
             COMBO_GOLD: '#ffea00',                    // 100+ 콤보 색상
@@ -68,12 +68,12 @@ export const CONFIG = {
     },
     // [신규] 레이아웃 설정 (하드코딩 값 중앙화)
     LAYOUT: {
-        HIT_LINE_Y: 0.7,           // 판정선 위치 (화면 비율)
+        HIT_LINE_Y: 0.85,          // 판정선 위치 (화면 하단 85%)
         SCORE_Y: 0.76,             // 점수 표시 위치
         COMBO_Y: 150,              // 콤보 표시 Y 위치 (픽셀)
         COMBO_FONT_SIZE: 96,       // 콤보 폰트 크기
         COMBO_LABEL_SPACING: 55,   // COMBO 라벨과 숫자 간격
-        TOUCH_ZONE_TOP: 0.7,       // 터치 영역 시작 위치
+        TOUCH_ZONE_TOP: 0.75,       // 터치 영역 시작 위치 (화면 하단 75%)
         SCORE_LABEL: 16,           // SCORE 라벨 폰트 크기
         SCORE_FONT_SIZE: 28        // 점수 폰트 크기
     },

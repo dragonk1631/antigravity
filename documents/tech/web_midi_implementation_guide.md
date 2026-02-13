@@ -16,7 +16,7 @@
 | :--- | :--- | :--- | :--- |
 | **WASM / AudioWorklet** | SpessaSynth 등 현대적 엔진 | **최상급 성능**, 스레드 분리 | 라이브러리 용량(약 1MB) |
 | **JS Web Audio API** | 구형 MIDI.js 방식 | 호환성 높음 | 메인 스레드 부하, 소리 늘어짐 |
-| **HTML5 Audio Element** | <audio> 태그 활용 | 구현 매우 단순 | 악기 교체 및 정밀 제어 불가 |
+| **HTML5 Audio Element** | `<audio>` 태그 활용 | 구현 매우 단순 | 악기 교체 및 정밀 제어 불가 |
 
 > [!TIP]
 > 현대적인 고성능 웹 게임에는 **SpessaSynth**와 같은 **WASM 기반 엔진** 사용을 강력히 권장합니다.
@@ -61,4 +61,4 @@ WASM 엔진은 백그라운드 워커에서 별도로 구동되므로, 인스턴
 - **재생이 지연될 때**: MIDI 파일 다운로드와 SF2 압축 해제 시간을 고려하여 `await` 루프를 통한 '로딩 대기' 로직을 초기화 시점에 넣어주십시오.
 
 ---
-*Created by Antigravity AI Engine*
+Created by Antigravity AI Engine

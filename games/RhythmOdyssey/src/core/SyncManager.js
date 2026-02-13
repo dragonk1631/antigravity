@@ -24,6 +24,9 @@ export class SyncManager {
         this.spawnedNotes = new Set();
         this.lastObstacleTime = 0; // 상호 배제용
 
+        // 부드러운 렌더링을 위한 보간 시간
+        this.smoothedTime = 0;
+
         // === 싱크 설정 ===
         this.scrollSpeed = CONFIG.GAME.SCROLL_SPEED;
         this.spawnDistance = CONFIG.NOTES.SPAWN_DISTANCE;
@@ -161,6 +164,15 @@ export class SyncManager {
             }
         });
 
+        // [USER REQUEST OVERRIDE] "Ballade pour Adeline" -> Channel 3 (User calls it Ch 4)
+        if (this.midiData.header.name.toLowerCase().includes('adeline')) {
+            const ch3TrackIndex = this.midiData.tracks.findIndex(t => t.channel === 3); // 0-based index
+            if (ch3TrackIndex !== -1) {
+                console.log(`[SyncManager] Override: Force 'Ballade pour Adeline' Melody to Track Index ${ch3TrackIndex}`);
+                this.trackRoles.melody = ch3TrackIndex;
+            }
+        }
+
         console.log(`[Analysis] Roles Assigned:`, this.trackRoles);
     }
 
@@ -175,35 +187,38 @@ export class SyncManager {
         const trackNotes = new Array(this.midiData.tracks.length).fill(null).map(() => []);
         this.scheduledNotes.forEach(nd => trackNotes[nd.trackIndex].push(nd));
 
-        // 1. Bass Track -> Kick
-        if (this.trackRoles.bass !== -1) {
+        // 0. Special Case: 'Ballade pour Adeline' -> Melody becomes Main Chart (Kicks)
+        // 사용자가 4번 채널(Melody)이 메인 채보(Kick)가 되길 원함
+        const isAdeline = this.midiData.header.name.toLowerCase().includes('adeline');
+
+        // 1. Bass Track -> Kick (Normal)
+        // 단, Adeline 곡은 Bass 트랙을 무시하거나 보조로 돌리고 Melody 트랙을 Kick으로 승격
+        const kickSourceRole = isAdeline ? 'melody' : 'bass';
+        const kickTrackIndex = this.trackRoles[kickSourceRole];
+
+        if (kickTrackIndex !== -1) {
             let lastTime = -100;
-            trackNotes[this.trackRoles.bass].forEach(nd => {
-                // 간격 체크 (0.4초)
-                if (nd.spawnTime - lastTime < 0.4) return;
+            trackNotes[kickTrackIndex].forEach(nd => {
+                // 간격 체크 (0.4초) -> Adeline은 피아노 곡이므로 좀 더 촘촘허용 (0.25)
+                const minGap = isAdeline ? 0.25 : 0.4;
+                if (nd.spawnTime - lastTime < minGap) return;
 
                 this.generatedObstacles.set(nd.id, { type: 'kick' });
                 lastTime = nd.spawnTime;
             });
         }
 
-        // 2. Melody Track -> Bird
-        if (this.trackRoles.melody !== -1) {
+        // 2. Melody Track -> Bird (Normal)
+        // Adeline 곡의 경우 Melody가 이미 Kick으로 쓰였으므로 Bird 생성 안 함 (중복 방지)
+        if (!isAdeline && this.trackRoles.melody !== -1) {
             let lastTime = -100;
             trackNotes[this.trackRoles.melody].forEach(nd => {
                 // 간격 체크 (0.25초) fast pace
                 if (nd.spawnTime - lastTime < 0.25) return;
 
-                // 킥 자리는 피하기 (ID 기반이라 직접 비교 불가 -> 시간 근접 체크 필요?)
-                // 하지만 이미 generateLevel은 순차적이므로, Kick이 이미 점유했는지 알 수 없음 (Map은 ID 키).
-                // -> 위 1번 베이스 루프에서 미리 Map에 넣었으므로, 같은 시간대에 킥이 있는지 확인하려면?
-                // 시간(fixed) -> ID 역참조 맵이 없으면 O(N)임.
-                // 복잡도 회피: 그냥 Melody는 독립적으로 생성하되, spawnNote에서 우선순위 처리?
-                // 아니오, 여기서 정하는게 맞음.
-                // Kick이 드문드문 나오므로 Bird가 겹칠 확률 낮음. 겹치면 Dual Spawn? -> 나쁘지 않음.
-                // 하지만 '불가능한 패턴' 방지를 위해 킥 앞뒤 0.2초는 피하는게 좋음.
+                // 간단한 충돌 방지: 킥과 완전히 같은 시간이면 스킵
+                if (this.generatedObstacles.has(nd.id)) return;
 
-                // 간단한 충돌 방지: 킥과 완전히 같은 시간이면 스킵 (일단 겹침 허용하되, 물리적 불가능만 배제)
                 this.generatedObstacles.set(nd.id, { type: 'bird' });
                 lastTime = nd.spawnTime;
             });
@@ -298,6 +313,7 @@ export class SyncManager {
         this.spawnedNotes.clear();
         this.lastObstacleTime = -100;
         this.lastObstacleType = null;
+        this.smoothedTime = 0;
 
         // 레벨 디자인 상태 초기화
         this.phraseCount = 0;
@@ -334,12 +350,12 @@ export class SyncManager {
     /**
      * 현재 음악 시간 (초) - 시퀀서 직접 참조
      */
+    /**
+     * 현재 음악 시간 (초) - 시퀀서 직접 참조 (보정된 시간 반환)
+     */
     getMusicTime() {
-        if (this.midiPlayer) {
-            const offset = CONFIG.NOTES.RHYTHM?.SYNC_OFFSET || 0;
-            return this.midiPlayer.getTime() - offset;
-        }
-        return 0;
+        // 끊김 방지를 위해 보간된 시간(smoothedTime) 사용
+        return this.smoothedTime;
     }
 
     /**
@@ -360,8 +376,34 @@ export class SyncManager {
     /**
      * 매 프레임 업데이트 (Game에서 호출)
      */
-    update() {
+    update(deltaTime) {
         if (!this.isPlaying) return;
+
+        // --- 부드러운 시간 처리 (Stutter Fix) ---
+        // 1. 실제 MIDI 플레이어 시간
+        let rawTime = 0;
+        if (this.midiPlayer) {
+            const offset = CONFIG.NOTES.RHYTHM?.SYNC_OFFSET || 0;
+            rawTime = this.midiPlayer.getTime() - offset;
+        }
+
+        // 2. 시간 보간 (Smoothed Time)
+        // 화면 주사율(60hz 등)과 오디오 처리 주기 불일치로 인한 떨림 보정
+        const diff = rawTime - this.smoothedTime;
+
+        // 차이가 너무 크면(0.5초 이상) 즉시 동기화 (seek 등)
+        if (Math.abs(diff) > 0.5) {
+            this.smoothedTime = rawTime;
+        } else {
+            // 차이가 작으면 부드럽게 따라가기 (Lerp) + 예측(deltaTime)
+            // deltaTime만큼 증가시키되, 실제 시간과의 오차를 조금씩 보정
+            this.smoothedTime += deltaTime;
+
+            // 드리프트 보정 (실제 시간보다 뒤쳐지거나 앞서가는 것 방지)
+            const driftCorrection = diff * 5.0 * deltaTime; // 보정 강도 5.0
+            this.smoothedTime += driftCorrection;
+        }
+        // -------------------------------------
 
         const currentTime = this.getMusicTime();
 

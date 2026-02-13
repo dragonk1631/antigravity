@@ -31,6 +31,13 @@ export class MidiPlayer {
 
         // SoundFont 경로 (static server 호환성을 위해 public/ 포함)
         this.soundFontUrl = 'public/assets/soundfonts/TimGM6mb.sf2';
+
+        // 채널 상태 추적
+        this.channelStates = Array.from({ length: 16 }, () => ({
+            volume: 1.0,
+            isMuted: false,
+            isSolo: false
+        }));
     }
 
     /**
@@ -204,6 +211,72 @@ export class MidiPlayer {
         if (this.synth) {
             this.synth.setMasterParameter('mainVolume', Math.max(0, Math.min(1, volume)));
         }
+    }
+
+    /**
+     * 특정 채널의 볼륨 설정 (0~1)
+     */
+    setChannelVolume(channel, volume) {
+        if (this.synth && channel >= 0 && channel < 16) {
+            const v = Math.max(0, Math.min(1, volume));
+            this.channelStates[channel].volume = v;
+            // CC 7 (Main Volume) 사용
+            this.synth.controllerChange(channel, 7, Math.floor(v * 127));
+            this.log(`Channel ${channel} volume set to ${v}`);
+        }
+    }
+
+    /**
+     * 특정 채널 뮤트 설정
+     */
+    setChannelMute(channel, isMuted) {
+        if (this.synth && channel >= 0 && channel < 16) {
+            this.channelStates[channel].isMuted = isMuted;
+            this.synth.muteChannel(channel, isMuted);
+            this.log(`Channel ${channel} ${isMuted ? 'muted' : 'unmuted'}`);
+        }
+    }
+
+    /**
+     * 특정 채널 솔로 설정
+     */
+    setChannelSolo(channel, isSolo) {
+        if (!this.synth || channel < 0 || channel >= 16) return;
+
+        this.channelStates[channel].isSolo = isSolo;
+
+        // 솔로 모드 활성화인 경우: 해당 채널만 켜고 나머지는 뮤트 (이미 솔로인 채널 제외)
+        // 솔로 모드 비활성화인 경우: 모든 채널 뮤트 해제 (원래 뮤트 상태였던 것 제외하는 로직은 단순화를 위해 생략하거나 확장 가능)
+        const anySolo = this.channelStates.some(s => s.isSolo);
+
+        if (anySolo) {
+            this.channelStates.forEach((state, i) => {
+                const shouldMute = !state.isSolo;
+                this.synth.muteChannel(i, shouldMute);
+            });
+        } else {
+            // 솔로가 하나도 없으면 모든 채널의 원래 뮤트 상태 적용
+            this.channelStates.forEach((state, i) => {
+                this.synth.muteChannel(i, state.isMuted);
+            });
+        }
+
+        this.log(`Channel ${channel} solo ${isSolo ? 'on' : 'off'}. Total solo active: ${anySolo}`);
+    }
+
+    /**
+     * 현재 모든 채널 정보 반환
+     */
+    getChannelsInfo() {
+        if (!this.sequencer || !this.sequencer.song) return [];
+
+        const channels = [];
+        // SpessaSynth의 sequencer.song.tracks 또는 MIDI 데이터를 통해 활성 채널 파악
+        // 여기서는 간단히 0-15 채널 중 노트가 있는 채널만 필터링하거나 전체 반환
+        return this.channelStates.map((state, i) => ({
+            channel: i,
+            ...state
+        }));
     }
 
     /**

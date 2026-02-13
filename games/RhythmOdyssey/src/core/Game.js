@@ -11,6 +11,7 @@ import { NoteVisualizer } from '../graphics/NoteVisualizer.js';
 import { Player } from '../gameplay/Player.js';
 import { SyncManager } from './SyncManager.js?v=GM_ANALYSIS';
 import { JudgmentUI } from '../ui/JudgmentUI.js';
+import { MixerUI } from '../ui/MixerUI.js';
 
 export class Game {
     constructor(container, audioManager, midiData, debug = null, midiPlayer = null) {
@@ -26,6 +27,7 @@ export class Game {
         this.player = null;
         this.syncManager = null;
         this.judgmentUI = null;
+        this.mixerUI = null;
 
         // 게임 상태
         this.isRunning = false;
@@ -69,6 +71,7 @@ export class Game {
 
         // UI 시스템
         this.judgmentUI = new JudgmentUI(this.container);
+        this.mixerUI = new MixerUI(this.container, this.midiPlayer);
 
         // 싱크 매니저 초기화
         this.syncManager = new SyncManager(this.audioManager, this.debug, this.midiPlayer);
@@ -184,6 +187,14 @@ export class Game {
         if (menuBtn) {
             menuBtn.addEventListener('click', () => this.backToMenu());
         }
+
+        const mixerBtn = document.getElementById('mixer-btn');
+        if (mixerBtn) {
+            mixerBtn.addEventListener('click', () => {
+                this.mixerUI.refresh(this.midiData);
+                this.mixerUI.toggle();
+            });
+        }
     }
 
     start() {
@@ -253,8 +264,8 @@ export class Game {
     }
 
     update(deltaTime, elapsedTime) {
-        // 싱크 매니저 업데이트 (스폰/사운드 타이밍 관리)
-        this.syncManager.update();
+        // 싱크 매니저 업데이트 (스폰/사운드 타이밍 관리 - deltaTime 전달 for Visual Smoothing)
+        this.syncManager.update(deltaTime);
 
         // 씬 스크롤 (정밀 음악 시간 기반)
         const musicTime = this.syncManager.getMusicTime();
